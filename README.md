@@ -108,6 +108,8 @@ cd UniTR
 # Install extra dependency
 pip install -r requirements.txt
 
+Remember to install the latest setuptools package. 
+
 # Install nuscenes-devkit
 pip install nuscenes-devkit==1.0.5
 
