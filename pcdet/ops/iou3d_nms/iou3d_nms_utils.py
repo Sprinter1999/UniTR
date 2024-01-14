@@ -10,6 +10,7 @@ from . import iou3d_nms_cuda
 
 
 def boxes_bev_iou_cpu(boxes_a, boxes_b):
+    #TODO:这段代码的作用是计算两组3D边界框之间的IoU，并将结果返回
     """
     Args:
         boxes_a: (N, 7) [x, y, z, dx, dy, dz, heading]

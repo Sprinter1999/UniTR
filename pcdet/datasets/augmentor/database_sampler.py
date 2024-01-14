@@ -277,6 +277,8 @@ class DataBaseSampler(object):
         if 'reverse' in nuscenes_img_aug_type:
             paste_order = paste_order[::-1]
         boxes2d = boxes2d.astype(np.int32)
+
+
         for _order in paste_order:
             _box2d = boxes2d[_order]
             idx = _box2d[-1]
@@ -381,16 +383,21 @@ class DataBaseSampler(object):
             view_sampled_boxes2d = sampled_boxes2d[view_mask][:,:4]
             pre_view_mask = existed_boxes2d[:,-1] == k
             view_existed_boxes2d = existed_boxes2d[pre_view_mask][:,:4]
+
+
+            # # 计算选取的样本与已存在的样本之间的IoU 
             iou2d1 = box_utils.pairwise_iou(view_sampled_boxes2d, view_existed_boxes2d).cpu().numpy()
             iou2d2 = box_utils.pairwise_iou(view_sampled_boxes2d, view_sampled_boxes2d).cpu().numpy()
             iou2d2[range(view_sampled_boxes2d.shape[0]), range(view_sampled_boxes2d.shape[0])] = 0
             iou2d1 = iou2d1 if iou2d1.shape[1] > 0 else iou2d2
 
+            # 更新ret_valid_mask，根据一些条件更新有效掩码  
             view_mask = view_mask.cpu().numpy().astype(bool)
             ret_valid_mask[view_mask] = ((iou2d1.max(axis=1)<self.img_aug_iou_thresh) &
                             (iou2d2.max(axis=1)<self.img_aug_iou_thresh) &
                             (valid_mask[view_mask]))
 
+        # 根据ret_valid_mask对sampled_boxes2d进行过滤，并将其转换为NumPy数组  
         sampled_boxes2d = sampled_boxes2d[ret_valid_mask].cpu().numpy()
         return sampled_boxes2d, None, ret_valid_mask
 
@@ -426,6 +433,7 @@ class DataBaseSampler(object):
         elif self.img_aug_type == 'nuscenes':
             obj_index_list, crop_boxes2d = [], []
             gt_number = gt_boxes_mask.sum().astype(np.int)
+            #FIXME: 需要搞懂gt_boxes2d是在哪一步产出的
             gt_boxes2d = data_dict['gt_boxes2d'][gt_boxes_mask].astype(np.int)
             gt_crops2d = [data_dict['ori_imgs'][_x[-1]][_x[1]:_x[3],_x[0]:_x[2]] for _x in gt_boxes2d]
 
@@ -467,6 +475,7 @@ class DataBaseSampler(object):
 
         return img_aug_gt_dict, obj_points
 
+    #TODO: called copy_paste_to_image_nuscenes
     def copy_paste_to_image(self, img_aug_gt_dict, data_dict, points):
         if self.img_aug_type == 'kitti':
             obj_points_idx = np.concatenate(img_aug_gt_dict['obj_index_list'], axis=0)
@@ -484,6 +493,8 @@ class DataBaseSampler(object):
             raise NotImplementedError
         return data_dict
 
+
+    #TODO: callee of copy_paste_to_image
     def add_sampled_boxes_to_scene(self, data_dict, sampled_gt_boxes, total_valid_sampled_dict, mv_height=None, sampled_gt_boxes2d=None):
         gt_boxes_mask = data_dict['gt_boxes_mask']
         gt_boxes = data_dict['gt_boxes'][gt_boxes_mask]
@@ -498,7 +509,7 @@ class DataBaseSampler(object):
 
         obj_points_list = []
 
-        # convert sampled 3D boxes to image plane
+        #TODO: convert sampled 3D boxes to image plane
         img_aug_gt_dict = self.initilize_image_aug_dict(data_dict, gt_boxes_mask)
 
         if self.use_shared_memory:
@@ -535,6 +546,7 @@ class DataBaseSampler(object):
                 # mv height
                 obj_points[:, 2] -= mv_height[idx]
 
+            #FIXME: 需要搞清楚image_aug_gt_dict是指什么
             if self.img_aug_type is not None:
                 img_aug_gt_dict, obj_points = self.collect_image_crops(
                     img_aug_gt_dict, info, data_dict, obj_points, sampled_gt_boxes, sampled_gt_boxes2d, idx, gt_database_data_img
@@ -565,6 +577,9 @@ class DataBaseSampler(object):
         )
         points = box_utils.remove_points_in_boxes3d(points, large_sampled_gt_boxes)
         points = np.concatenate([obj_points[:, :points.shape[-1]], points], axis=0)
+        
+        
+        #TODO: 把确定可以加入的目标merge到当前的所有data_dict中
         gt_names = np.concatenate([gt_names, sampled_gt_names], axis=0)
         gt_boxes = np.concatenate([gt_boxes, sampled_gt_boxes], axis=0)
         data_dict['gt_boxes'] = gt_boxes
@@ -605,13 +620,20 @@ class DataBaseSampler(object):
 
                 assert not self.sampler_cfg.get('DATABASE_WITH_FAKELIDAR', False), 'Please use latest codes to generate GT_DATABASE'
 
+                #TODO: 判断是否存在冲突
                 iou1 = iou3d_nms_utils.boxes_bev_iou_cpu(sampled_boxes[:, 0:7], existed_boxes[:, 0:7])
+                #TODO: 将`iou2`对角线上的值设为0，避免计算自身边界框的IoU
                 iou2 = iou3d_nms_utils.boxes_bev_iou_cpu(sampled_boxes[:, 0:7], sampled_boxes[:, 0:7])
                 iou2[range(sampled_boxes.shape[0]), range(sampled_boxes.shape[0])] = 0
                 iou1 = iou1 if iou1.shape[1] > 0 else iou2
+
+                #TODO: 根据计算得到的IoU结果，生成一个布尔掩码，用于判断采样边界框是否与已存在边界框存在冲突
                 valid_mask = ((iou1.max(axis=1) + iou2.max(axis=1)) == 0)
 
+                # img_aug_type = nuscenes
                 if self.img_aug_type is not None:
+
+                    #TODO: 并不是每一个sample box都会被选取，需要计算和当前frame的gt data dict的冲突情况
                     sampled_boxes2d, mv_height, valid_mask = self.sample_gt_boxes_2d(data_dict, sampled_boxes, valid_mask, sampled_dict)
                     sampled_gt_boxes2d.append(sampled_boxes2d)
                     if mv_height is not None:
@@ -620,7 +642,8 @@ class DataBaseSampler(object):
                 valid_mask = valid_mask.nonzero()[0]
                 valid_sampled_dict = [sampled_dict[x] for x in valid_mask]
                 valid_sampled_boxes = sampled_boxes[valid_mask]
-
+                
+                #TODO: valid sampled boxes可以理解为“确认可以添加的目标”
                 existed_boxes = np.concatenate((existed_boxes, valid_sampled_boxes[:, :existed_boxes.shape[-1]]), axis=0)
                 total_valid_sampled_dict.extend(valid_sampled_dict)
 
