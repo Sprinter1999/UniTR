@@ -1,0 +1,233 @@
+  ----------- INFO_PATH -----------
+  cfg.DATA_CONFIG.INFO_PATH.train: ['nuscenes_infos_10sweeps_train.pkl']
+  cfg.DATA_CONFIG.INFO_PATH.test: ['nuscenes_infos_10sweeps_val.pkl']
+  cfg.DATA_CONFIG.POINT_CLOUD_RANGE: [-54.0, -54.0, -5.0, 54.0, 54.0, 3.0]
+  cfg.DATA_CONFIG.BALANCED_RESAMPLING: True
+  ----------- DATA_AUGMENTOR -----------
+  cfg.DATA_CONFIG.DATA_AUGMENTOR.DISABLE_AUG_LIST: ['placeholder']
+  cfg.DATA_CONFIG.DATA_AUGMENTOR.AUG_CONFIG_LIST: [{'NAME': 'gt_sampling', 'IMG_AUG_TYPE': 'nuscenes', 'IMG_AUG_MIXUP': 0.7, 'DB_INFO_PATH': ['nuscenes_dbinfos_10sweeps_withvelo.pkl'], 'PREPARE': {'filter_by_min_points': ['car:5', 'truck:5', 'construction_vehicle:5', 'bus:5', 'trailer:5', 'barrier:5', 'motorcycle:5', 'bicycle:5', 'pedestrian:5', 'traffic_cone:5']}, 'USE_SHARED_MEMORY': False, 'DB_DATA_PATH': ['nuscenes_10sweeps_withvelo_lidar.npy', 'nuscenes_10sweeps_withvelo_img.npy'], 'SAMPLE_GROUPS': ['car:2', 'truck:3', 'construction_vehicle:7', 'bus:4', 'trailer:6', 'barrier:2', 'motorcycle:6', 'bicycle:6', 'pedestrian:2', 'traffic_cone:2'], 'NUM_POINT_FEATURES': 5, 'DATABASE_WITH_FAKELIDAR': False, 'REMOVE_EXTRA_WIDTH': [0.0, 0.0, 0.0], 'LIMIT_WHOLE_SCENE': True, 'use_hf': False, 'fr_path': '/private_dataset/nuscenes_pcdet/v1.0-trainval/gt_database_10sweeps_withvelo', 'fr_num': 54899}, {'NAME': 'random_world_flip', 'ALONG_AXIS_LIST': ['x', 'y']}, {'NAME': 'random_world_rotation', 'WORLD_ROT_ANGLE': [-0.78539816, 0.78539816]}, {'NAME': 'random_world_scaling', 'WORLD_SCALE_RANGE': [0.9, 1.1]}, {'NAME': 'random_world_translation', 'NOISE_TRANSLATE_STD': [0.5, 0.5, 0.5]}, {'NAME': 'imgaug', 'ROT_LIM': [-5.4, 5.4], 'RAND_FLIP': True}]
+  ----------- POINT_FEATURE_ENCODING -----------
+  cfg.DATA_CONFIG.POINT_FEATURE_ENCODING.encoding_type: absolute_coordinates_encoding
+  cfg.DATA_CONFIG.POINT_FEATURE_ENCODING.used_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp']
+  cfg.DATA_CONFIG.POINT_FEATURE_ENCODING.src_feature_list: ['x', 'y', 'z', 'intensity', 'timestamp']
+  cfg.DATA_CONFIG.DATA_PROCESSOR: [{'NAME': 'mask_points_and_boxes_outside_range', 'REMOVE_OUTSIDE_BOXES': True}, {'NAME': 'shuffle_points', 'SHUFFLE_ENABLED': {'train': True, 'test': True}}, {'NAME': 'transform_points_to_voxels_placeholder', 'VOXEL_SIZE': [0.3, 0.3, 8.0]}, {'NAME': 'image_calibrate'}, {'NAME': 'image_normalize', 'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225]}]
+  cfg.DATA_CONFIG._BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset.yaml
+  ----------- CAMERA_CONFIG -----------
+  cfg.DATA_CONFIG.CAMERA_CONFIG.USE_CAMERA: True
+  ----------- IMAGE -----------
+  cfg.DATA_CONFIG.CAMERA_CONFIG.IMAGE.FINAL_DIM: [256, 704]
+  cfg.DATA_CONFIG.CAMERA_CONFIG.IMAGE.RESIZE_LIM_TRAIN: [0.38, 0.55]
+  cfg.DATA_CONFIG.CAMERA_CONFIG.IMAGE.RESIZE_LIM_TEST: [0.48, 0.48]
+  ----------- MODEL -----------
+  cfg.MODEL.NAME: UniTR
+  ----------- MM_BACKBONE -----------
+  cfg.MODEL.MM_BACKBONE.NAME: UniTR
+  ----------- PATCH_EMBED -----------
+  cfg.MODEL.MM_BACKBONE.PATCH_EMBED.in_channels: 3
+  cfg.MODEL.MM_BACKBONE.PATCH_EMBED.image_size: [256, 704]
+  cfg.MODEL.MM_BACKBONE.PATCH_EMBED.embed_dims: 128
+  cfg.MODEL.MM_BACKBONE.PATCH_EMBED.patch_size: 8
+  cfg.MODEL.MM_BACKBONE.PATCH_EMBED.patch_norm: True
+  ----------- norm_cfg -----------
+  cfg.MODEL.MM_BACKBONE.PATCH_EMBED.norm_cfg.type: LN
+  ----------- IMAGE_INPUT_LAYER -----------
+  cfg.MODEL.MM_BACKBONE.IMAGE_INPUT_LAYER.sparse_shape: [32, 88, 1]
+  cfg.MODEL.MM_BACKBONE.IMAGE_INPUT_LAYER.d_model: [128]
+  cfg.MODEL.MM_BACKBONE.IMAGE_INPUT_LAYER.set_info: [[90, 4]]
+  cfg.MODEL.MM_BACKBONE.IMAGE_INPUT_LAYER.window_shape: [[30, 30, 1]]
+  cfg.MODEL.MM_BACKBONE.IMAGE_INPUT_LAYER.hybrid_factor: [1, 1, 1]
+  cfg.MODEL.MM_BACKBONE.IMAGE_INPUT_LAYER.shifts_list: [[[0, 0, 0], [15, 15, 0]]]
+  cfg.MODEL.MM_BACKBONE.IMAGE_INPUT_LAYER.input_image: True
+  ----------- LIDAR_INPUT_LAYER -----------
+  cfg.MODEL.MM_BACKBONE.LIDAR_INPUT_LAYER.sparse_shape: [360, 360, 1]
+  cfg.MODEL.MM_BACKBONE.LIDAR_INPUT_LAYER.d_model: [128]
+  cfg.MODEL.MM_BACKBONE.LIDAR_INPUT_LAYER.set_info: [[90, 4]]
+  cfg.MODEL.MM_BACKBONE.LIDAR_INPUT_LAYER.window_shape: [[30, 30, 1]]
+  cfg.MODEL.MM_BACKBONE.LIDAR_INPUT_LAYER.hybrid_factor: [1, 1, 1]
+  cfg.MODEL.MM_BACKBONE.LIDAR_INPUT_LAYER.shifts_list: [[[0, 0, 0], [15, 15, 0]]]
+  cfg.MODEL.MM_BACKBONE.set_info: [[90, 4]]
+  cfg.MODEL.MM_BACKBONE.d_model: [128]
+  cfg.MODEL.MM_BACKBONE.nhead: [8]
+  cfg.MODEL.MM_BACKBONE.dim_feedforward: [256]
+  cfg.MODEL.MM_BACKBONE.dropout: 0.0
+  cfg.MODEL.MM_BACKBONE.activation: gelu
+  cfg.MODEL.MM_BACKBONE.checkpoint_blocks: [0, 1, 2, 3]
+  ----------- layer_cfg -----------
+  cfg.MODEL.MM_BACKBONE.layer_cfg.use_bn: False
+  cfg.MODEL.MM_BACKBONE.layer_cfg.split_ffn: True
+  cfg.MODEL.MM_BACKBONE.layer_cfg.split_residual: True
+  ----------- FUSE_BACKBONE -----------
+  ----------- IMAGE2LIDAR -----------
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.block_start: 3
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.block_end: 4
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.point_cloud_range: [-54.0, -54.0, -10.0, 54.0, 54.0, 10.0]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.voxel_size: [0.3, 0.3, 20.0]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.sample_num: 20
+  ----------- image2lidar_layer -----------
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.image2lidar_layer.sparse_shape: [360, 360, 1]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.image2lidar_layer.d_model: [128]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.image2lidar_layer.set_info: [[90, 1]]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.image2lidar_layer.window_shape: [[30, 30, 1]]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.image2lidar_layer.hybrid_factor: [1, 1, 1]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.image2lidar_layer.shifts_list: [[[0, 0, 0], [15, 15, 0]]]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.IMAGE2LIDAR.image2lidar_layer.expand_max_voxels: 10
+  ----------- LIDAR2IMAGE -----------
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.block_start: 1
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.block_end: 3
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.point_cloud_range: [-54.0, -54.0, -5.0, 54.0, 54.0, 3.0]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.voxel_size: [0.3, 0.3, 8.0]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.sample_num: 1
+  ----------- lidar2image_layer -----------
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.lidar2image_layer.sparse_shape: [96, 264, 6]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.lidar2image_layer.d_model: [128]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.lidar2image_layer.set_info: [[90, 2]]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.lidar2image_layer.window_shape: [[30, 30, 1]]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.lidar2image_layer.hybrid_factor: [1, 1, 1]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.lidar2image_layer.shifts_list: [[[0, 0, 0], [15, 15, 0]]]
+  cfg.MODEL.MM_BACKBONE.FUSE_BACKBONE.LIDAR2IMAGE.lidar2image_layer.expand_max_voxels: 30
+  cfg.MODEL.MM_BACKBONE.out_indices: [0, 1, 2, 3]
+  ----------- NECK -----------
+  cfg.MODEL.NECK.NAME: GeneralizedLSSFPN
+  cfg.MODEL.NECK.IN_CHANNELS: [128, 128, 128, 128]
+  cfg.MODEL.NECK.OUT_CHANNELS: 256
+  cfg.MODEL.NECK.START_LEVEL: 0
+  cfg.MODEL.NECK.END_LEVEL: -1
+  cfg.MODEL.NECK.NUM_OUTS: 4
+  cfg.MODEL.NECK.USE_BIAS: True
+  cfg.MODEL.NECK.ALIGN_CORNERS: True
+  ----------- VTRANSFORM -----------
+  cfg.MODEL.VTRANSFORM.NAME: LSSTransform
+  cfg.MODEL.VTRANSFORM.IMAGE_SIZE: [256, 704]
+  cfg.MODEL.VTRANSFORM.IN_CHANNEL: 256
+  cfg.MODEL.VTRANSFORM.OUT_CHANNEL: 80
+  cfg.MODEL.VTRANSFORM.FEATURE_SIZE: [32, 88]
+  cfg.MODEL.VTRANSFORM.XBOUND: [-54.0, 54.0, 0.3]
+  cfg.MODEL.VTRANSFORM.YBOUND: [-54.0, 54.0, 0.3]
+  cfg.MODEL.VTRANSFORM.ZBOUND: [-10.0, 10.0, 20.0]
+  cfg.MODEL.VTRANSFORM.DBOUND: [1.0, 60.0, 0.5]
+  cfg.MODEL.VTRANSFORM.DOWNSAMPLE: 1
+  ----------- FUSER -----------
+  cfg.MODEL.FUSER.NAME: ConvFuser
+  cfg.MODEL.FUSER.IN_CHANNEL: 208
+  cfg.MODEL.FUSER.OUT_CHANNEL: 128
+  ----------- VFE -----------
+  cfg.MODEL.VFE.NAME: DynPillarVFE
+  cfg.MODEL.VFE.WITH_DISTANCE: False
+  cfg.MODEL.VFE.USE_ABSLOTE_XYZ: True
+  cfg.MODEL.VFE.USE_NORM: True
+  cfg.MODEL.VFE.NUM_FILTERS: [128, 128]
+  ----------- MAP_TO_BEV -----------
+  cfg.MODEL.MAP_TO_BEV.NAME: PointPillarScatter3d
+  cfg.MODEL.MAP_TO_BEV.INPUT_SHAPE: [360, 360, 1]
+  cfg.MODEL.MAP_TO_BEV.NUM_BEV_FEATURES: 128
+  ----------- BACKBONE_2D -----------
+  cfg.MODEL.BACKBONE_2D.NAME: BaseBEVResBackbone
+  cfg.MODEL.BACKBONE_2D.LAYER_NUMS: [1, 2, 2, 2]
+  cfg.MODEL.BACKBONE_2D.LAYER_STRIDES: [1, 2, 2, 2]
+  cfg.MODEL.BACKBONE_2D.NUM_FILTERS: [128, 128, 256, 256]
+  cfg.MODEL.BACKBONE_2D.UPSAMPLE_STRIDES: [0.5, 1, 2, 4]
+  cfg.MODEL.BACKBONE_2D.NUM_UPSAMPLE_FILTERS: [128, 128, 128, 128]
+  ----------- DENSE_HEAD -----------
+  cfg.MODEL.DENSE_HEAD.CLASS_AGNOSTIC: False
+  cfg.MODEL.DENSE_HEAD.NAME: TransFusionHead
+  cfg.MODEL.DENSE_HEAD.QUERY_RADIUS: 20
+  cfg.MODEL.DENSE_HEAD.QUERY_LOCAL: True
+  cfg.MODEL.DENSE_HEAD.USE_BIAS_BEFORE_NORM: True
+  cfg.MODEL.DENSE_HEAD.NUM_PROPOSALS: 200
+  cfg.MODEL.DENSE_HEAD.HIDDEN_CHANNEL: 128
+  cfg.MODEL.DENSE_HEAD.NUM_CLASSES: 10
+  cfg.MODEL.DENSE_HEAD.NUM_HEADS: 8
+  cfg.MODEL.DENSE_HEAD.NMS_KERNEL_SIZE: 3
+  cfg.MODEL.DENSE_HEAD.FFN_CHANNEL: 256
+  cfg.MODEL.DENSE_HEAD.DROPOUT: 0.1
+  cfg.MODEL.DENSE_HEAD.BN_MOMENTUM: 0.1
+  cfg.MODEL.DENSE_HEAD.ACTIVATION: relu
+  cfg.MODEL.DENSE_HEAD.NUM_HM_CONV: 2
+  ----------- SEPARATE_HEAD_CFG -----------
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_ORDER: ['center', 'height', 'dim', 'rot', 'vel', 'iou']
+  ----------- HEAD_DICT -----------
+  ----------- center -----------
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.center.out_channels: 2
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.center.num_conv: 2
+  ----------- height -----------
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.height.out_channels: 1
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.height.num_conv: 2
+  ----------- dim -----------
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.dim.out_channels: 3
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.dim.num_conv: 2
+  ----------- rot -----------
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.rot.out_channels: 2
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.rot.num_conv: 2
+  ----------- vel -----------
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.vel.out_channels: 2
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.vel.num_conv: 2
+  ----------- iou -----------
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.iou.out_channels: 1
+  cfg.MODEL.DENSE_HEAD.SEPARATE_HEAD_CFG.HEAD_DICT.iou.num_conv: 2
+  ----------- TARGET_ASSIGNER_CONFIG -----------
+  cfg.MODEL.DENSE_HEAD.TARGET_ASSIGNER_CONFIG.FEATURE_MAP_STRIDE: 2
+  cfg.MODEL.DENSE_HEAD.TARGET_ASSIGNER_CONFIG.DATASET: nuScenes
+  cfg.MODEL.DENSE_HEAD.TARGET_ASSIGNER_CONFIG.GAUSSIAN_OVERLAP: 0.1
+  cfg.MODEL.DENSE_HEAD.TARGET_ASSIGNER_CONFIG.MIN_RADIUS: 2
+  ----------- HUNGARIAN_ASSIGNER -----------
+  ----------- cls_cost -----------
+  cfg.MODEL.DENSE_HEAD.TARGET_ASSIGNER_CONFIG.HUNGARIAN_ASSIGNER.cls_cost.gamma: 2.0
+  cfg.MODEL.DENSE_HEAD.TARGET_ASSIGNER_CONFIG.HUNGARIAN_ASSIGNER.cls_cost.alpha: 0.25
+  cfg.MODEL.DENSE_HEAD.TARGET_ASSIGNER_CONFIG.HUNGARIAN_ASSIGNER.cls_cost.weight: 0.15
+  ----------- reg_cost -----------
+  cfg.MODEL.DENSE_HEAD.TARGET_ASSIGNER_CONFIG.HUNGARIAN_ASSIGNER.reg_cost.weight: 0.25
+  ----------- iou_cost -----------
+  cfg.MODEL.DENSE_HEAD.TARGET_ASSIGNER_CONFIG.HUNGARIAN_ASSIGNER.iou_cost.weight: 0.25
+  ----------- LOSS_CONFIG -----------
+  ----------- LOSS_WEIGHTS -----------
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_WEIGHTS.cls_weight: 1.0
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_WEIGHTS.bbox_weight: 0.25
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_WEIGHTS.hm_weight: 1.0
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_WEIGHTS.iou_weight: 0.5
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_WEIGHTS.iou_reg_weight: 0.5
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_WEIGHTS.code_weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2]
+  ----------- LOSS_CLS -----------
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_CLS.use_sigmoid: True
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_CLS.gamma: 2.0
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_CLS.alpha: 0.25
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_IOU: True
+  cfg.MODEL.DENSE_HEAD.LOSS_CONFIG.LOSS_IOU_REG: True
+  ----------- POST_PROCESSING -----------
+  cfg.MODEL.DENSE_HEAD.POST_PROCESSING.SCORE_THRESH: 0.0
+  cfg.MODEL.DENSE_HEAD.POST_PROCESSING.POST_CENTER_RANGE: [-61.2, -61.2, -10.0, 61.2, 61.2, 10.0]
+  cfg.MODEL.DENSE_HEAD.POST_PROCESSING.USE_IOU_TO_RECTIFY_SCORE: True
+  cfg.MODEL.DENSE_HEAD.POST_PROCESSING.IOU_RECTIFIER: [0.5]
+  ----------- NMS_CONFIG -----------
+  cfg.MODEL.DENSE_HEAD.NMS_CONFIG.NMS_TYPE: nms_gpu
+  cfg.MODEL.DENSE_HEAD.NMS_CONFIG.NMS_THRESH: 0.2
+  cfg.MODEL.DENSE_HEAD.NMS_CONFIG.NMS_PRE_MAXSIZE: 1000
+  cfg.MODEL.DENSE_HEAD.NMS_CONFIG.NMS_POST_MAXSIZE: 100
+  cfg.MODEL.DENSE_HEAD.NMS_CONFIG.SCORE_THRES: 0.0
+  ----------- POST_PROCESSING -----------
+  cfg.MODEL.POST_PROCESSING.RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
+  cfg.MODEL.POST_PROCESSING.SCORE_THRESH: 0.1
+  cfg.MODEL.POST_PROCESSING.OUTPUT_RAW_SCORE: False
+  cfg.MODEL.POST_PROCESSING.EVAL_METRIC: kitti
+  ----------- NMS_CONFIG -----------
+  cfg.MODEL.POST_PROCESSING.NMS_CONFIG.MULTI_CLASSES_NMS: True
+  cfg.MODEL.POST_PROCESSING.NMS_CONFIG.NMS_TYPE: nms_gpu
+  cfg.MODEL.POST_PROCESSING.NMS_CONFIG.NMS_THRESH: 0.2
+  cfg.MODEL.POST_PROCESSING.NMS_CONFIG.NMS_PRE_MAXSIZE: 1000
+  cfg.MODEL.POST_PROCESSING.NMS_CONFIG.NMS_POST_MAXSIZE: 83
+  ----------- OPTIMIZATION -----------
+  cfg.OPTIMIZATION.BATCH_SIZE_PER_GPU: 2
+  cfg.OPTIMIZATION.NUM_EPOCHS: 10
+  cfg.OPTIMIZATION.OPTIMIZER: adam_onecycle
+  cfg.OPTIMIZATION.LR: 0.003
+  cfg.OPTIMIZATION.WEIGHT_DECAY: 0.03
+  cfg.OPTIMIZATION.MOMENTUM: 0.9
+  cfg.OPTIMIZATION.MOMS: [0.95, 0.85]
+  cfg.OPTIMIZATION.PCT_START: 0.4
+  cfg.OPTIMIZATION.DIV_FACTOR: 10
+  cfg.OPTIMIZATION.DECAY_STEP_LIST: [35, 45]
+  cfg.OPTIMIZATION.LR_DECAY: 0.1
+  cfg.OPTIMIZATION.LR_CLIP: 1e-07
+  cfg.OPTIMIZATION.LR_WARMUP: False
+  cfg.OPTIMIZATION.WARMUP_EPOCH: 1
+  cfg.OPTIMIZATION.GRAD_NORM_CLIP: 10
+  cfg.OPTIMIZATION.LOSS_SCALE_FP16: 32

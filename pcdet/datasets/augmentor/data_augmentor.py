@@ -35,7 +35,8 @@ class DataAugmentor(object):
                     continue
             cur_augmentor = getattr(self, cur_cfg.NAME)(config=cur_cfg)
             self.data_augmentor_queue.append(cur_augmentor)
-             
+    
+    #TODO: GT Aug Sampling Sampler, not used in current file
     def gt_sampling(self, config=None):
         db_sampler = database_sampler.DataBaseSampler(
             root_path=self.root_path,
@@ -287,6 +288,8 @@ class DataAugmentor(object):
         data_dict["camera_imgs"] = new_imgs
         return data_dict
 
+
+    #TODO: Data Aug Pipeline
     def forward(self, data_dict):
         """
         Args:

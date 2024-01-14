@@ -20,8 +20,10 @@ class DataBaseSampler(object):
         self.class_names = class_names
         self.sampler_cfg = sampler_cfg
 
+        #NuScenes
         self.img_aug_type = sampler_cfg.get('IMG_AUG_TYPE', None)
         self.img_aug_iou_thresh = sampler_cfg.get('IMG_AUG_IOU_THRESH', 0.5)
+        # Mixup
         self.img_aug_mixup = sampler_cfg.get('IMG_AUG_MIXUP', 0.7)
 
         self.logger = logger
@@ -169,6 +171,8 @@ class DataBaseSampler(object):
         sample_group['indices'] = indices
         return sampled_dict
 
+
+    #TODO: used for KITTI
     @staticmethod
     def put_boxes_on_road_planes(gt_boxes, road_planes, calib):
         """
@@ -256,13 +260,14 @@ class DataBaseSampler(object):
 
         return data_dict
     
+    #TODO: 
     def copy_paste_to_image_nuscenes(self, data_dict, crop_feat, gt_number, point_idxes=None):
         nuscenes_img_aug_type = 'by_depth'
 
         image = data_dict['ori_imgs']
         boxes3d = data_dict['gt_boxes']
         boxes2d = data_dict['gt_boxes2d']
-        raw_img = deepcopy(image)
+        # raw_img = deepcopy(image)
         if 'depth' in nuscenes_img_aug_type:
             paste_order = boxes3d[:,0].argsort()
             paste_order = paste_order[::-1]
@@ -591,6 +596,8 @@ class DataBaseSampler(object):
             if self.limit_whole_scene:
                 num_gt = np.sum(class_name == gt_names)
                 sample_group['sample_num'] = str(int(self.sample_class_num[class_name]) - num_gt)
+            
+            
             if int(sample_group['sample_num']) > 0:
                 sampled_dict = self.sample_with_fixed_number(class_name, sample_group)
 

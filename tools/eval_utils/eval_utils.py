@@ -62,7 +62,22 @@ def eval_one_epoch(cfg, args, model, dataloader, epoch_id, logger, dist_test=Fal
             start_time = time.time()
 
         with torch.no_grad():
+            # print("^^^^^^^^^^^^^^^^^")
+            # print(batch_dict.keys())
+            # for key, value in batch_dict.items():  
+            #     print(key, value)
+            # exit()
+            print("&&&&&&&&&&&&&&&&&&")
             pred_dicts, ret_dict = model(batch_dict)
+
+            from thop import profile, clever_format
+            macs, params = profile(model, inputs=(batch_dict, ))
+            print(macs)
+            print("###########")
+            print(params)
+
+
+            exit()
 
         disp_dict = {}
 

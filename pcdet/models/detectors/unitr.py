@@ -101,6 +101,7 @@ class UniTR(Detector3DTemplate):
     def forward(self, batch_dict): 
         for cur_module in self.module_list:
             batch_dict = cur_module(batch_dict)
+            # print k v.shape 
 
         if self.training:
             loss, tb_dict, disp_dict = self.get_training_loss(batch_dict)

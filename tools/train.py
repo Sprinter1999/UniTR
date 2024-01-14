@@ -209,6 +209,11 @@ def main():
 
     logger.info('**********************Start evaluation %s/%s(%s)**********************' %
                 (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
+    
+    
+    #TODO: NuScenes Class_Names: 
+    # CLASS_NAMES: ['car','truck', 'construction_vehicle', 'bus', 'trailer',
+    #          'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
         class_names=cfg.CLASS_NAMES,
