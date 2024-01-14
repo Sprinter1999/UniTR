@@ -413,6 +413,7 @@ class DataBaseSampler(object):
 
         return sampled_boxes2d, mv_height, ret_valid_mask
 
+    #TODO: convert sampled 3D boxes to image plane
     def initilize_image_aug_dict(self, data_dict, gt_boxes_mask):
         img_aug_gt_dict = None
         if self.img_aug_type is None:

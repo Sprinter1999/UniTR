@@ -218,6 +218,8 @@ class DatasetTemplate(torch_data.Dataset):
             
             if 'calib' in data_dict:
                 calib = data_dict['calib']
+
+            #TODO: gt_boxes_mask added in here
             data_dict = self.data_augmentor.forward(
                 data_dict={
                     **data_dict,
