@@ -53,6 +53,8 @@ class NuScenesDataset(DatasetTemplate):
         self.infos.extend(nuscenes_infos)
         self.logger.info('Total samples for NuScenes dataset: %d' % (len(nuscenes_infos)))
 
+
+    #TODO: CBGS
     def balanced_infos_resampling(self, infos):
         """
         Class-balanced sampling of nuScenes dataset from https://arxiv.org/abs/1908.09492
@@ -459,7 +461,7 @@ class NuScenesDataset(DatasetTemplate):
                 stacked_gt_img = np.concatenate(stacked_gt_img, axis=0)
                 np.save(db_data_save_path_img, stacked_gt_img)
 
-
+#TODO: Fired Process to create dataset info file, lidar and image gt database
 def create_nuscenes_info(version, data_path, save_path, max_sweeps=10, with_cam=False):
     from nuscenes.nuscenes import NuScenes
     from nuscenes.utils import splits
@@ -489,7 +491,8 @@ def create_nuscenes_info(version, data_path, save_path, max_sweeps=10, with_cam=
     val_scenes = set([available_scenes[available_scene_names.index(s)]['token'] for s in val_scenes])
 
     print('%s: train scene(%d), val scene(%d)' % (version, len(train_scenes), len(val_scenes)))
-
+    
+    #TODO: Frustum在这里加入
     train_nusc_infos, val_nusc_infos = nuscenes_utils.fill_trainval_infos(
         data_path=data_path, nusc=nusc, train_scenes=train_scenes, val_scenes=val_scenes,
         test='test' in version, max_sweeps=max_sweeps, with_cam=with_cam

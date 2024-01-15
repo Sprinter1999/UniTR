@@ -33,6 +33,7 @@ class DataBaseSampler(object):
 
         self.use_shared_memory = sampler_cfg.get('USE_SHARED_MEMORY', False)
 
+        #TODO: 提前生成了用于GT Sampling的数据库
         for db_info_path in sampler_cfg.DB_INFO_PATH:
             db_info_path = self.root_path.resolve() / db_info_path
             if not db_info_path.exists():
@@ -260,7 +261,6 @@ class DataBaseSampler(object):
 
         return data_dict
     
-    #TODO: 
     #TODO: callee : data_dict = self.copy_paste_to_image_nuscenes(data_dict, img_aug_gt_dict['gt_crops2d'], img_aug_gt_dict['gt_number'])
     def copy_paste_to_image_nuscenes(self, data_dict, crop_feat, gt_number, point_idxes=None):
         nuscenes_img_aug_type = 'by_depth'
@@ -624,6 +624,8 @@ class DataBaseSampler(object):
             
             
             if int(sample_group['sample_num']) > 0:
+
+                #TODO: 这里从GT Database里面根据需求直接采样，并不考虑冲突，和PointAugmenting不一样
                 sampled_dict = self.sample_with_fixed_number(class_name, sample_group)
 
                 sampled_boxes = np.stack([x['box3d_lidar'] for x in sampled_dict], axis=0).astype(np.float32)

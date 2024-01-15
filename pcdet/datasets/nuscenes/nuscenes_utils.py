@@ -342,6 +342,8 @@ def post_process_coords(
     else:
         return None
 
+
+#FIXME: Frustum需要在这里生成
 def fill_trainval_infos(data_path, nusc, train_scenes, val_scenes, test=False, max_sweeps=10, with_cam=False):
     train_nusc_infos = []
     val_nusc_infos = []

@@ -301,6 +301,8 @@ class DataAugmentor(object):
 
         Returns:
         """
+
+        #TODO: Data Augmenting Pipeline
         for cur_augmentor in self.data_augmentor_queue:
             data_dict = cur_augmentor(data_dict=data_dict)
 
