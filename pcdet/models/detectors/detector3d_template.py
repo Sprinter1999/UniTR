@@ -49,6 +49,7 @@ class Detector3DTemplate(nn.Module):
             self.add_module(module_name, module)
         return model_info_dict['module_list']
 
+    # VFE is used in UNITR 
     def build_vfe(self, model_info_dict):
         if self.model_cfg.get('VFE', None) is None:
             return None, model_info_dict
@@ -82,6 +83,7 @@ class Detector3DTemplate(nn.Module):
             if hasattr(backbone_3d_module, 'backbone_channels') else None
         return backbone_3d_module, model_info_dict
 
+    # used in UNITR
     def build_map_to_bev_module(self, model_info_dict):
         if self.model_cfg.get('MAP_TO_BEV', None) is None:
             return None, model_info_dict
@@ -94,6 +96,7 @@ class Detector3DTemplate(nn.Module):
         model_info_dict['num_bev_features'] = map_to_bev_module.num_bev_features
         return map_to_bev_module, model_info_dict
 
+    # used in UniTR
     def build_backbone_2d(self, model_info_dict):
         if self.model_cfg.get('BACKBONE_2D', None) is None:
             return None, model_info_dict
@@ -122,6 +125,7 @@ class Detector3DTemplate(nn.Module):
         model_info_dict['num_point_features_before_fusion'] = pfe_module.num_point_features_before_fusion
         return pfe_module, model_info_dict
 
+    
     def build_dense_head(self, model_info_dict):
         if self.model_cfg.get('DENSE_HEAD', None) is None:
             return None, model_info_dict

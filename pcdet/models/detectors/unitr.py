@@ -7,6 +7,8 @@ from ...utils.spconv_utils import find_all_spconv_keys
 class UniTR(Detector3DTemplate):
     def __init__(self, model_cfg, num_class, dataset):
         super().__init__(model_cfg=model_cfg, num_class=num_class, dataset=dataset)
+        
+        # VFE在detector3d, map_to_bev_module, dense_head, backbone_2d 在detector3dTemplate中定义
         self.module_topology = [
             'vfe','mm_backbone', 'map_to_bev_module',
             'neck','vtransform', 'fuser',

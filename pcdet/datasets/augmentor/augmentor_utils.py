@@ -21,7 +21,7 @@ def random_flip_along_x(gt_boxes, points, return_flip=False, enable=None):
         
         if gt_boxes.shape[1] > 7:
             gt_boxes[:, 8] = -gt_boxes[:, 8]
-    if return_flip:
+    if return_flip:data_augmentor
         return gt_boxes, points, enable
     return gt_boxes, points
 
