@@ -269,6 +269,8 @@ class DataBaseSampler(object):
         boxes3d = data_dict['gt_boxes']
         boxes2d = data_dict['gt_boxes2d']
         # raw_img = deepcopy(image)
+
+        # 已经写死了，先把远处的拼上去，再把近的拼上去
         if 'depth' in nuscenes_img_aug_type:
             paste_order = boxes3d[:,0].argsort()
             paste_order = paste_order[::-1]
@@ -279,7 +281,7 @@ class DataBaseSampler(object):
             paste_order = paste_order[::-1]
         boxes2d = boxes2d.astype(np.int32)
 
-        #FIXME: 需要明确这里的mixup的具体操作
+        #FIXME: 需要明确这里的mixup的具体操作，其实是把crop_image和原始图像进行融合，但是只有crop_image的一部分会被融合到原始图像中
         for _order in paste_order:
             _box2d = boxes2d[_order]
             idx = _box2d[-1]
