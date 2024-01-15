@@ -261,6 +261,7 @@ class DataBaseSampler(object):
         return data_dict
     
     #TODO: 
+    #TODO: callee : data_dict = self.copy_paste_to_image_nuscenes(data_dict, img_aug_gt_dict['gt_crops2d'], img_aug_gt_dict['gt_number'])
     def copy_paste_to_image_nuscenes(self, data_dict, crop_feat, gt_number, point_idxes=None):
         nuscenes_img_aug_type = 'by_depth'
 
@@ -278,18 +279,23 @@ class DataBaseSampler(object):
             paste_order = paste_order[::-1]
         boxes2d = boxes2d.astype(np.int32)
 
-
+        #FIXME: 需要明确这里的mixup的具体操作
         for _order in paste_order:
             _box2d = boxes2d[_order]
             idx = _box2d[-1]
             h = _box2d[3] - _box2d[1]
             w = _box2d[2] - _box2d[0]
+
+            #TODO: in init: self.img_aug_mixup = sampler_cfg.get('IMG_AUG_MIXUP', 0.7)
+            #改动的关键
             image[idx][_box2d[1]:_box2d[3],_box2d[0]:_box2d[2]] = self.img_aug_mixup* crop_feat[_order][:h,:w] + \
                 (1-self.img_aug_mixup)*image[idx][_box2d[1]:_box2d[3],_box2d[0]:_box2d[2]]
+        
+        
         # recover crop resize
         crop_imgs = []
         W, H = data_dict["ori_shape"]
-        img_process_infos = data_dict['img_process_infos']
+        img_process_infos = data_dict['img_process_infos'] #这个是nuscenes自带的，用于处理图像的一些基本参数，便于放缩之类的
         for img, img_process_info in zip(image, img_process_infos):
             resize,crop = img_process_info[:2]
             img = Image.fromarray(img)
@@ -477,6 +483,7 @@ class DataBaseSampler(object):
         return img_aug_gt_dict, obj_points
 
     #TODO: called copy_paste_to_image_nuscenes
+    # callee: copy_paste_to_image(img_aug_gt_dict, data_dict, points)
     def copy_paste_to_image(self, img_aug_gt_dict, data_dict, points):
         if self.img_aug_type == 'kitti':
             obj_points_idx = np.concatenate(img_aug_gt_dict['obj_index_list'], axis=0)
