@@ -491,8 +491,14 @@ def create_nuscenes_info(version, data_path, save_path, max_sweeps=10, with_cam=
     val_scenes = set([available_scenes[available_scene_names.index(s)]['token'] for s in val_scenes])
 
     print('%s: train scene(%d), val scene(%d)' % (version, len(train_scenes), len(val_scenes)))
+<<<<<<< Updated upstream
     
     #TODO: Frustum在这里加入
+=======
+
+
+    #TODO: 填入字段
+>>>>>>> Stashed changes
     train_nusc_infos, val_nusc_infos = nuscenes_utils.fill_trainval_infos(
         data_path=data_path, nusc=nusc, train_scenes=train_scenes, val_scenes=val_scenes,
         test='test' in version, max_sweeps=max_sweeps, with_cam=with_cam
