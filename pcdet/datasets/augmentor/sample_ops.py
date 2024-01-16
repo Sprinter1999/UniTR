@@ -8,8 +8,8 @@ import numpy as np
 
 from .cross_modal_augmentation import *
 # from det3d.core.bbox import c
-from det3d.core.sampler import preprocess as prep
-from det3d.utils.check import shape_mergeable
+import preprocess as prep
+# from det3d.utils.check import shape_mergeable
 
 def corners_to_bbox(info, corners, cam_name, calib, imsize=(900, 1600)):
     avail_new = info['avail_2d'].copy()
@@ -30,6 +30,7 @@ def corners_to_bbox(info, corners, cam_name, calib, imsize=(900, 1600)):
 
             # cam to uv
             from det3d.datasets.pipelines.loading import view_points
+            
             pts_uv = view_points(pts_cam, np.array(cam_intrinsic), normalize=True).T  # N * 3
 
             bbox = np.array([np.min(pts_uv[:, 0], axis=0), np.min(pts_uv[:, 1], axis=0),

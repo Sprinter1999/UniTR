@@ -5,6 +5,145 @@ import logging
 import abc
 
 
+def minmax_to_corner_2d(minmax_box):
+    ndim = minmax_box.shape[-1] // 2
+    center = minmax_box[..., :ndim]
+    dims = minmax_box[..., ndim:] - center
+    return center_to_corner_box2d(center, dims, origin=0.0)
+
+def is_array_like(x):
+    return isinstance(x, (list, tuple, np.ndarray))
+
+
+def shape_mergeable(x, expected_shape):
+    mergeable = True
+    if is_array_like(x) and is_array_like(expected_shape):
+        x = np.array(x)
+        if len(x.shape) == len(expected_shape):
+            for s, s_ex in zip(x.shape, expected_shape):
+                if s_ex is not None and s != s_ex:
+                    mergeable = False
+                    break
+    return mergeable
+
+
+def rotation_2d(points, angles):
+    """rotation 2d points based on origin point clockwise when angle positive.
+
+    Args:
+        points (float array, shape=[N, point_size, 2]): points to be rotated.
+        angles (float array, shape=[N]): rotation angle.
+
+    Returns:
+        float array: same shape as points
+    """
+    rot_sin = np.sin(angles)
+    rot_cos = np.cos(angles)
+    rot_mat_T = np.stack([[rot_cos, -rot_sin], [rot_sin, rot_cos]])
+    return np.einsum("aij,jka->aik", points, rot_mat_T)
+
+def center_to_corner_box2d(centers, dims, angles=None, origin=0.5):
+    """convert kitti locations, dimensions and angles to corners
+
+    Args:
+        centers (float array, shape=[N, 2]): locations in kitti label file.
+        dims (float array, shape=[N, 2]): dimensions in kitti label file.
+        angles (float array, shape=[N]): rotation_y in kitti label file.
+
+    Returns:
+        [type]: [description]
+    """
+    # 'length' in kitti format is in x axis.
+    # xyz(hwl)(kitti label file)<->xyz(lhw)(camera)<->z(-x)(-y)(wlh)(lidar)
+    # center in kitti format is [0.5, 1.0, 0.5] in xyz.
+    corners = corners_nd(dims, origin=origin)
+    # corners: [N, 4, 2]
+    if angles is not None:
+        corners = rotation_2d(corners, angles)
+    corners += centers.view(-1, 1, 2)
+    return corners
+
+def camera_to_lidar(points, r_rect, velo2cam):
+    points_shape = list(points.shape[0:-1])
+    if points.shape[-1] == 3:
+        points = np.concatenate([points, np.ones(points_shape + [1])], axis=-1)
+    lidar_points = points @ np.linalg.inv((r_rect @ velo2cam).T)
+    return lidar_points[..., :3]
+
+
+def lidar_to_camera(points, r_rect, velo2cam):
+    points_shape = list(points.shape[:-1])
+    if points.shape[-1] == 3:
+        points = np.concatenate([points, np.ones(points_shape + [1])], axis=-1)
+    camera_points = points @ (r_rect @ velo2cam).T
+    return camera_points[..., :3]
+
+def project_to_image(points_3d, proj_mat):
+    points_shape = list(points_3d.shape)
+    points_shape[-1] = 1
+    points_4 = np.concatenate([points_3d, np.ones(points_shape)], axis=-1)
+    point_2d = points_4 @ proj_mat.T
+    point_2d_res = point_2d[..., :2] / point_2d[..., 2:3]
+    return point_2d_res
+
+def box_camera_to_lidar(data, r_rect, velo2cam):
+    xyz = data[:, 0:3]
+    l, h, w = data[:, 3:4], data[:, 4:5], data[:, 5:6]
+    r = data[:, 6:7]
+    xyz_lidar = camera_to_lidar(xyz, r_rect, velo2cam)
+    return np.concatenate([xyz_lidar, w, l, h, r], axis=1)
+
+def box_camera_to_lidar(data, r_rect, velo2cam):
+    xyz = data[:, 0:3]
+    l, h, w = data[:, 3:4], data[:, 4:5], data[:, 5:6]
+    r = data[:, 6:7]
+    xyz_lidar = camera_to_lidar(xyz, r_rect, velo2cam)
+    return np.concatenate([xyz_lidar, w, l, h, r], axis=1)
+
+
+def box_lidar_to_camera(data, r_rect, velo2cam):
+    xyz_lidar = data[:, 0:3]
+    w, l, h = data[:, 3:4], data[:, 4:5], data[:, 5:6]
+    r = data[:, 6:7]
+    xyz = lidar_to_camera(xyz_lidar, r_rect, velo2cam)
+    return np.concatenate([xyz, l, h, w, r], axis=1)
+
+def box3d_to_bbox(box3d, rect, Trv2c, P2):
+    box3d_to_cam = box_lidar_to_camera(box3d, rect, Trv2c)
+    box_corners = center_to_corner_box3d(
+        box3d[:, :3], box3d[:, 3:6], box3d[:, 6], [0.5, 1.0, 0.5], axis=1
+    )
+    box_corners_in_image = project_to_image(box_corners, P2)
+    # box_corners_in_image: [N, 8, 2]
+    minxy = np.min(box_corners_in_image, axis=1)
+    maxxy = np.max(box_corners_in_image, axis=1)
+    bbox = np.concatenate([minxy, maxxy], axis=1)
+    return bbox
+
+def rotation_points_single_angle(points, angle, axis=0):
+    # points: [N, 3]
+    rot_sin = np.sin(angle)
+    rot_cos = np.cos(angle)
+    if axis == 1:
+        rot_mat_T = np.array(
+            [[rot_cos, 0, -rot_sin], [0, 1, 0], [rot_sin, 0, rot_cos]],
+            dtype=points.dtype,
+        )
+    elif axis == 2 or axis == -1:
+        rot_mat_T = np.array(
+            [[rot_cos, -rot_sin, 0], [rot_sin, rot_cos, 0], [0, 0, 1]],
+            dtype=points.dtype,
+        )
+    elif axis == 0:
+        rot_mat_T = np.array(
+            [[1, 0, 0], [0, rot_cos, -rot_sin], [0, rot_sin, rot_cos]],
+            dtype=points.dtype,
+        )
+    else:
+        raise ValueError("axis should in range")
+
+    return points @ rot_mat_T
+
 class DataBasePreprocessor:
     def __init__(self, preprocessors):
         self._preprocessors = preprocessors
