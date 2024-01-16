@@ -33,7 +33,7 @@ class DataBaseSampler(object):
 
         self.use_shared_memory = sampler_cfg.get('USE_SHARED_MEMORY', False)
 
-        #TODO: 提前生成了用于GT Sampling的数据库
+        #TODO: 提前生成了用于 GT Sampling 的数据库
         for db_info_path in sampler_cfg.DB_INFO_PATH:
             db_info_path = self.root_path.resolve() / db_info_path
             if not db_info_path.exists():

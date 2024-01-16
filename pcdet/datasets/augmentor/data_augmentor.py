@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 
 from ...utils import common_utils
-from . import augmentor_utils, database_sampler
+from . import augmentor_utils, database_sampler, pointaug_sampler
 
 
 class DataAugmentor(object):
@@ -36,8 +36,15 @@ class DataAugmentor(object):
             cur_augmentor = getattr(self, cur_cfg.NAME)(config=cur_cfg)
             self.data_augmentor_queue.append(cur_augmentor)
     
-    #TODO: GT Aug Sampling Sampler, not used in current file
+    
+    #FIXME: Point Augmenting Sampler
     def gt_sampling(self, config=None):
+        db_sampler_PA = None
+        return db_sampler_PA
+
+
+    #TODO: GT Aug Sampling Sampler originally used in UniTR
+    def gt_sampling_backup(self, config=None):
         db_sampler = database_sampler.DataBaseSampler(
             root_path=self.root_path,
             sampler_cfg=config,

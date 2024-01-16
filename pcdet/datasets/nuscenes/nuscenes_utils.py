@@ -500,8 +500,6 @@ def fill_trainval_infos_frustum(data_path, nusc, train_scenes, val_scenes, test=
         from collections import defaultdict
         img_boxes_dict = defaultdict(list)
 
-        #TODO: 这里似乎少了PA的335行的逻辑
-
 
 
         #TODO: 少了 cams_from_global ， ref_to_global
@@ -542,16 +540,21 @@ def fill_trainval_infos_frustum(data_path, nusc, train_scenes, val_scenes, test=
 
             for cam in camera_types:
                 cam_token = sample["data"][cam]
-                cam_path, _, camera_intrinsics = nusc.get_sample_data(cam_token)
+                # cam_path, _, camera_intrinsics = nusc.get_sample_data(cam_token)
+
+                #TODO: aligned with PointAug
+                ref_cam_path, img_boxes, ref_cam_intrinsic = nusc.get_sample_data(cam_token, box_vis_level=BoxVisibility.ANY)
+
+
                 cam_info = obtain_sensor2top(
                     nusc, cam_token, l2e_t, l2e_r_mat, e2g_t, e2g_r_mat, cam
                 )
                 cam_info['data_path'] = Path(cam_info['data_path']).relative_to(data_path).__str__()
-                cam_info.update(camera_intrinsics=camera_intrinsics)
+                cam_info.update(camera_intrinsics=ref_cam_intrinsic) #此处参数进行了重命名
                 info["cams"].update({cam: cam_info})
 
 
-                ref_cam_path, img_boxes, ref_cam_intrinsic = nusc.get_sample_data(cam_token, box_vis_level=BoxVisibility.ANY)
+                # ref_cam_path, img_boxes, ref_cam_intrinsic = nusc.get_sample_data(cam_token, box_vis_level=BoxVisibility.ANY)
 
                 if not test:
                     from .utils_kitti import KittiDB
