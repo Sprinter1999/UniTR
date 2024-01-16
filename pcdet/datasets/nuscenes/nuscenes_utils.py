@@ -41,6 +41,17 @@ map_name_from_general_to_detection = {
     'static_object.bicycle_rack': 'ignore',
 }
 
+try:
+    from nuscenes import NuScenes
+    # from nuscenes.utils import splits
+    # from nuscenes.utils.data_classes import LidarPointCloud
+    from nuscenes.utils.geometry_utils import transform_matrix, BoxVisibility
+    from nuscenes.utils.data_classes import Box
+    # from nuscenes.eval.detection.config import config_factory
+    # from nuscenes.eval.detection.evaluate import NuScenesEval
+except:
+    print("nuScenes devkit not Found!")
+
 
 cls_attr_dist = {
     'barrier': {
@@ -343,7 +354,425 @@ def post_process_coords(
         return None
 
 
+#TODO: 导入helpers
+def transform2Spherical(points):
+    pts_r = np.sqrt(np.square(points[:, 0]) + np.square(points[:, 1]) + np.square(points[:, 2]))
+    pts_theta = np.arccos(points[:, 2] / pts_r)
+    pts_phi = (np.arctan(points[:, 1] / points[:, 0]) + (points[:, 0] < 0) * np.pi + np.pi * 2) % (np.pi * 2)  # [0, 2*pi]
+    # assert pts_phi.all() >= 0 and pts_phi.all() <= 2 * np.pi
+    pts_rr = np.vstack([pts_r, pts_theta, pts_phi]).T
+    return pts_rr    
+
+def corners_nd(dims, origin=0.5):
+    """generate relative box corners based on length per dim and
+    origin point.
+
+    Args:
+        dims (float array, shape=[N, ndim]): array of length per dim
+        origin (list or array or float): origin point relate to smallest point.
+
+    Returns:
+        float array, shape=[N, 2 ** ndim, ndim]: returned corners.
+        point layout example: (2d) x0y0, x0y1, x1y0, x1y1;
+            (3d) x0y0z0, x0y0z1, x0y1z0, x0y1z1, x1y0z0, x1y0z1, x1y1z0, x1y1z1
+            where x0 < x1, y0 < y1, z0 < z1
+    """
+    ndim = int(dims.shape[1])
+    corners_norm = np.stack(
+        np.unravel_index(np.arange(2 ** ndim), [2] * ndim), axis=1
+    ).astype(dims.dtype)
+    # now corners_norm has format: (2d) x0y0, x0y1, x1y0, x1y1
+    # (3d) x0y0z0, x0y0z1, x0y1z0, x0y1z1, x1y0z0, x1y0z1, x1y1z0, x1y1z1
+    # so need to convert to a format which is convenient to do other computing.
+    # for 2d boxes, format is clockwise start with minimum point
+    # for 3d boxes, please draw lines by your hand.
+    if ndim == 2:
+        # generate clockwise box corners
+        corners_norm = corners_norm[[0, 1, 3, 2]]
+    elif ndim == 3:
+        corners_norm = corners_norm[[0, 1, 3, 2, 4, 5, 7, 6]]
+    corners_norm = corners_norm - np.array(origin, dtype=dims.dtype)
+    corners = dims.reshape([-1, 1, ndim]) * corners_norm.reshape([1, 2 ** ndim, ndim])
+    return corners    
+
+def center_to_corner_box3d(centers, dims, angles=None, origin=(0.5, 0.5, 0.5), axis=2):
+    """convert kitti locations, dimensions and angles to corners
+
+    Args:
+        centers (float array, shape=[N, 3]): locations in kitti label file.
+        dims (float array, shape=[N, 3]): dimensions in kitti label file.
+        angles (float array, shape=[N]): rotation_y in kitti label file.
+        origin (list or array or float): origin point relate to smallest point.
+            use [0.5, 1.0, 0.5] in camera and [0.5, 0.5, 0] in lidar.
+        axis (int): rotation axis. 1 for camera and 2 for lidar.
+    Returns:
+        [type]: [description]
+    """
+    # 'length' in kitti format is in x axis.
+    # yzx(hwl)(kitti label file)<->xyz(lhw)(camera)<->z(-x)(-y)(wlh)(lidar)
+    # center in kitti format is [0.5, 1.0, 0.5] in xyz.
+    corners = corners_nd(dims, origin=origin)
+    # corners: [N, 8, 3]
+    if angles is not None:
+        corners = rotation_3d_in_axis(corners, angles, axis=axis)
+    corners += centers.reshape([-1, 1, 3])
+    return corners    
+
+def rotation_3d_in_axis(points, angles, axis=0):
+    # points: [N, point_size, 3]
+    rot_sin = np.sin(angles)
+    rot_cos = np.cos(angles)
+    ones = np.ones_like(rot_cos)
+    zeros = np.zeros_like(rot_cos)
+    if axis == 1:
+        rot_mat_T = np.stack(
+            [
+                [rot_cos, zeros, -rot_sin],
+                [zeros, ones, zeros],
+                [rot_sin, zeros, rot_cos],
+            ]
+        )
+    elif axis == 2 or axis == -1:
+        rot_mat_T = np.stack(
+            [
+                [rot_cos, -rot_sin, zeros],
+                [rot_sin, rot_cos, zeros],
+                [zeros, zeros, ones],
+            ]
+        )
+    elif axis == 0:
+        rot_mat_T = np.stack(
+            [
+                [zeros, rot_cos, -rot_sin],
+                [zeros, rot_sin, rot_cos],
+                [ones, zeros, zeros],
+            ]
+        )
+    else:
+        raise ValueError("axis should in range")
+
+    return np.einsum("aij,jka->aik", points, rot_mat_T)
+
+
 #FIXME: Frustum需要在这里生成
+def fill_trainval_infos_frustum(data_path, nusc, train_scenes, val_scenes, test=False, max_sweeps=10, with_cam=False):
+    train_nusc_infos = []
+    val_nusc_infos = []
+    progress_bar = tqdm.tqdm(total=len(nusc.sample), desc='create_info', dynamic_ncols=True)
+
+    ref_chan = 'LIDAR_TOP'  # The radar channel from which we track back n sweeps to aggregate the point cloud.
+    chan = 'LIDAR_TOP'  # The reference channel of the current sample_rec that the point clouds are mapped to.
+
+
+    #TODO: 填每一个样本
+    for index, sample in enumerate(nusc.sample):
+        progress_bar.update()
+
+
+        #TODO: Aligned
+        ref_sd_token = sample['data'][ref_chan]
+        ref_sd_rec = nusc.get('sample_data', ref_sd_token)
+        ref_cs_rec = nusc.get('calibrated_sensor', ref_sd_rec['calibrated_sensor_token'])
+        ref_pose_rec = nusc.get('ego_pose', ref_sd_rec['ego_pose_token'])
+        ref_time = 1e-6 * ref_sd_rec['timestamp']
+        ref_lidar_path, ref_boxes, _ = get_sample_data(nusc, ref_sd_token)
+
+
+
+
+        ref_cam_front_token = sample['data']['CAM_FRONT']
+        ref_cam_path, _, ref_cam_intrinsic = nusc.get_sample_data(ref_cam_front_token)
+
+        # Homogeneous transform from ego car frame to reference frame
+        ref_from_car = transform_matrix(
+            ref_cs_rec['translation'], Quaternion(ref_cs_rec['rotation']), inverse=True
+        )
+
+        # Homogeneous transformation matrix from global to _current_ ego car frame
+        car_from_global = transform_matrix(
+            ref_pose_rec['translation'], Quaternion(ref_pose_rec['rotation']), inverse=True,
+        )
+
+        location = nusc.get(
+            "log", nusc.get("scene", sample["scene_token"])["log_token"]
+        )["location"]
+
+        from collections import defaultdict
+        img_boxes_dict = defaultdict(list)
+
+        #TODO: 这里似乎少了PA的335行的逻辑
+
+
+
+        #TODO: 少了 cams_from_global ， ref_to_global
+        info = {
+            'lidar_path': Path(ref_lidar_path).relative_to(data_path).__str__(),
+            'cam_front_path': Path(ref_cam_path).relative_to(data_path).__str__(),
+            'cam_intrinsic': ref_cam_intrinsic,
+            'token': sample['token'],
+            'sweeps': [],
+            'ref_from_car': ref_from_car,
+            'car_from_global': car_from_global,
+            'timestamp': ref_time,
+            "location": location,
+        }
+
+
+        if with_cam:
+            info['cams'] = dict()
+            l2e_r = ref_cs_rec["rotation"]
+            l2e_t = ref_cs_rec["translation"],
+            e2g_r = ref_pose_rec["rotation"]
+            e2g_t = ref_pose_rec["translation"]
+            l2e_r_mat = Quaternion(l2e_r).rotation_matrix
+            e2g_r_mat = Quaternion(e2g_r).rotation_matrix
+
+            # obtain 6 image's information per frame
+            camera_types = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
+            # camera_types = [
+            #     "CAM_FRONT",
+            #     "CAM_FRONT_RIGHT",
+            #     "CAM_FRONT_LEFT",
+            #     "CAM_BACK",
+            #     "CAM_BACK_LEFT",
+            #     "CAM_BACK_RIGHT",
+            # ]
+
+            CAM_SENSOR_DICT = {cam: i for i, cam in enumerate(camera_types)}
+
+            for cam in camera_types:
+                cam_token = sample["data"][cam]
+                cam_path, _, camera_intrinsics = nusc.get_sample_data(cam_token)
+                cam_info = obtain_sensor2top(
+                    nusc, cam_token, l2e_t, l2e_r_mat, e2g_t, e2g_r_mat, cam
+                )
+                cam_info['data_path'] = Path(cam_info['data_path']).relative_to(data_path).__str__()
+                cam_info.update(camera_intrinsics=camera_intrinsics)
+                info["cams"].update({cam: cam_info})
+
+
+                ref_cam_path, img_boxes, ref_cam_intrinsic = nusc.get_sample_data(cam_token, box_vis_level=BoxVisibility.ANY)
+
+                if not test:
+                    from .utils_kitti import KittiDB
+                    import copy
+                    for img_box in img_boxes:
+                        img_box.translate(np.array([0, img_box.wlh[2] / 2, 0]))
+                        bbox, imcorners = KittiDB.project_kitti_box_to_image(
+                            copy.deepcopy(img_box), ref_cam_intrinsic, imsize=(1600, 900))
+                        bbox = np.array([bbox[0], bbox[1], bbox[2], bbox[3]])
+                        imcorners = np.array(imcorners)
+                        if img_box.token not in img_boxes_dict:
+                            img_boxes_dict[img_box.token] = [{'bbox': bbox, "imcorners": imcorners, 'cam_sensor': cam, "depth": img_box.center[2]}]
+                        else:
+                            img_boxes_dict[img_box.token].append({'bbox': bbox, "imcorners": imcorners, 'cam_sensor': cam, "depth": img_box.center[2]})
+
+        
+
+
+
+        #TODO: Aligned in the following sequence
+        sample_data_token = sample['data'][chan]
+        curr_sd_rec = nusc.get('sample_data', sample_data_token)
+        sweeps = []
+        while len(sweeps) < max_sweeps - 1:
+            if curr_sd_rec['prev'] == '':
+                if len(sweeps) == 0:
+                    sweep = {
+                        'lidar_path': Path(ref_lidar_path).relative_to(data_path).__str__(),
+                        'sample_data_token': curr_sd_rec['token'],
+                        'transform_matrix': None,
+                        'time_lag': curr_sd_rec['timestamp'] * 0,
+                    }
+                    sweeps.append(sweep)
+                else:
+                    sweeps.append(sweeps[-1])
+            else:
+                curr_sd_rec = nusc.get('sample_data', curr_sd_rec['prev'])
+
+                # Get past pose
+                current_pose_rec = nusc.get('ego_pose', curr_sd_rec['ego_pose_token'])
+                global_from_car = transform_matrix(
+                    current_pose_rec['translation'], Quaternion(current_pose_rec['rotation']), inverse=False,
+                )
+
+                # Homogeneous transformation matrix from sensor coordinate frame to ego car frame.
+                current_cs_rec = nusc.get(
+                    'calibrated_sensor', curr_sd_rec['calibrated_sensor_token']
+                )
+                car_from_current = transform_matrix(
+                    current_cs_rec['translation'], Quaternion(current_cs_rec['rotation']), inverse=False,
+                )
+
+                tm = reduce(np.dot, [ref_from_car, car_from_global, global_from_car, car_from_current])
+
+                lidar_path = nusc.get_sample_data_path(curr_sd_rec['token'])
+
+                time_lag = ref_time - 1e-6 * curr_sd_rec['timestamp']
+
+                sweep = {
+                    'lidar_path': Path(lidar_path).relative_to(data_path).__str__(),
+                    'sample_data_token': curr_sd_rec['token'],
+                    'transform_matrix': tm,
+                    'global_from_car': global_from_car,
+                    'car_from_current': car_from_current,
+                    'time_lag': time_lag,
+                }
+                sweeps.append(sweep)
+
+        info['sweeps'] = sweeps
+        assert len(info['sweeps']) == max_sweeps - 1, \
+            f"sweep {curr_sd_rec['token']} only has {len(info['sweeps'])} sweeps, " \
+            f"you should duplicate to sweep num {max_sweeps - 1}"
+
+
+
+
+
+
+
+
+        if not test:
+
+            # Aligned
+            annotations = [nusc.get('sample_annotation', token) for token in sample['anns']]
+
+            # the filtering gives 0.5~1 map improvement
+            num_lidar_pts = np.array([anno['num_lidar_pts'] for anno in annotations])
+            num_radar_pts = np.array([anno['num_radar_pts'] for anno in annotations])
+            mask = (num_lidar_pts + num_radar_pts > 0)
+            #FIXME: [Aligned] mask = np.array([(anno['num_lidar_pts'] + anno['num_radar_pts'])>0 for anno in annotations], dtype=bool).reshape(-1)
+            
+            #Aligned
+            locs = np.array([b.center for b in ref_boxes]).reshape(-1, 3)
+
+            #FIXME: DIMS of various shape : dims = np.array([b.wlh for b in ref_boxes]).reshape(-1, 3)
+            dims = np.array([b.wlh for b in ref_boxes]).reshape(-1, 3)[:, [1, 0, 2]]  # wlh == > dxdydz (lwh)
+            #FIXED
+            dims_pointAug = np.array([b.wlh for b in ref_boxes]).reshape(-1, 3)
+            
+            # Aligned
+            velocity = np.array([b.velocity for b in ref_boxes]).reshape(-1, 3)
+            rots = np.array([quaternion_yaw(b.orientation) for b in ref_boxes]).reshape(-1, 1)
+            names = np.array([b.name for b in ref_boxes])
+            tokens = np.array([b.token for b in ref_boxes])
+
+
+            #FIXME: to be aligned with gt_boxes = np.concatenate([locs, dims, velocity[:, :2], -rots - np.pi / 2], axis=1)
+            gt_boxes = np.concatenate([locs, dims, rots, velocity[:, :2]], axis=1)
+            #FIXED, 多一维角度
+            gt_boxes_pointAug = np.concatenate([locs, dims_pointAug, velocity[:, :2], -rots - np.pi / 2], axis=1)
+
+            assert len(annotations) == len(gt_boxes) == len(velocity)
+
+
+            #TODO: insert frustum TODO:
+            num_box = gt_boxes_pointAug.shape[0]
+            #TODO: should replace gt_boxes with gt_boxes_pointAug
+            gt_box_corners = center_to_corner_box3d(
+                gt_boxes_pointAug[:, :3], gt_boxes_pointAug[:, 3:6], gt_boxes_pointAug[:, -1],).reshape(-1, 3)  # N * 8 * 3 - (N*8)*3
+            
+            pts_rr = transform2Spherical(gt_box_corners)
+            pts_rr = pts_rr.reshape(num_box, 8, 3)
+
+            gt_frustum = np.ones([num_box, 3, 2, 2], dtype=np.float32) * -1  # N * (r, phi, theta) * (min, max) * 2
+            gt_frustum[:, :, :, 0] = np.stack([pts_rr.min(axis=1), pts_rr.max(axis=1)], axis=2)
+            val = (gt_frustum[:, 2, 1, 0] - gt_frustum[:, 2, 0, 0]) > np.pi
+            if val.any():
+                idxs = np.where(val > 0)[0]
+                gt_frustum[val, 2, 0, 0] = 0.
+                gt_frustum[val, 2, 1, 1] = np.pi * 2
+                for idx in idxs:
+                    gt_frustum[idx, 2, 1, 0] = pts_rr[idx, pts_rr[idx, :, 2] < np.pi, 2].max()
+                    gt_frustum[idx, 2, 0, 1] = pts_rr[idx, pts_rr[idx, :, 2] > np.pi, 2].min()
+
+            # get 2d box info
+            avail_2d = np.zeros([tokens.shape[0], 6], dtype=np.bool_)
+            boxes_2d = np.ones([tokens.shape[0], 6, 4]).astype(np.float32) * -1
+            depths = np.zeros([tokens.shape[0], 6]).astype(np.float32)
+
+
+            for ids, b in enumerate(ref_boxes):
+                if b.token in img_boxes_dict:
+                    for img_id, cur_box in enumerate(img_boxes_dict[b.token]):
+                        # special case, box width or height < 1
+                        if (cur_box['bbox'][2] - cur_box['bbox'][0]) < 1. or (
+                                cur_box['bbox'][3] - cur_box['bbox'][1]) < 1.:
+                            print('invalid box: height or width < 1')
+                            continue
+                        cam_id = CAM_SENSOR_DICT[cur_box['cam_sensor']]
+                        avail_2d[ids, cam_id] = True
+                        boxes_2d[ids, cam_id] = cur_box['bbox']
+                        depths[ids, cam_id] = cur_box['depth']
+
+
+
+            info['gt_boxes'] = gt_boxes[mask, :]
+            info['gt_boxes_velocity'] = velocity[mask, :]
+            info['gt_names'] = np.array([map_name_from_general_to_detection[name] for name in names])[mask]
+            info['gt_boxes_token'] = tokens[mask]
+            info['num_lidar_pts'] = num_lidar_pts[mask]
+            info['num_radar_pts'] = num_radar_pts[mask]
+
+            #TODO: Update more info
+            info["gt_frustum"] = gt_frustum[mask]
+            info["avail_2d"] = avail_2d[mask]
+            info["boxes_2d"] = boxes_2d[mask]
+            info["depths"] = depths[mask]
+
+
+            if with_cam:
+                info['empty_mask'] = mask
+                # add 2d box
+                gt_boxes_2d = [] # one 3d box to one 2d box
+                all_2d_boxes = [] # all 2d boxes (one 3d box may project to more than one 2d box)
+                # NOTE generate projected one-to-one 2d box
+                for anno in annotations:
+                    box = nusc.get_box(anno['token'])
+                    has_proj = False
+                    for index, cam in enumerate(camera_types):
+                        tmp_box = box.copy()
+                        cam_info = info['cams'][cam]
+                        tmp_box.translate(-np.array(cam_info['ego2global_translation']))
+                        tmp_box.rotate(Quaternion(cam_info['ego2global_rotation']).inverse)
+                        # Move them to the calibrated sensor frame.
+                        tmp_box.translate(-np.array(cam_info['sensor2ego_translation']))
+                        tmp_box.rotate(Quaternion(cam_info['sensor2ego_rotation']).inverse)
+
+                        # Filter out the corners that are not in front of the calibrated sensor.
+                        corners_3d = tmp_box.corners()
+                        # print(corners_3d)
+                        in_front = np.argwhere(corners_3d[2, :] > 0).flatten()
+                        corners_3d = corners_3d[:, in_front]
+
+                        # Project 3d box to 2d.
+                        corner_coords = view_points(corners_3d, cam_info['camera_intrinsics'], True).T[:, :2].tolist()
+                        # Keep only corners that fall within the image.
+                        final_coords = post_process_coords(corner_coords)
+                        # Skip if the convex hull of the re-projected corners does not intersect the image canvas.
+                        if final_coords is None:
+                            continue
+                        else:
+                            min_x, min_y, max_x, max_y = final_coords
+                            if has_proj == False:
+                                gt_boxes_2d.append([min_x, min_y, max_x, max_y, index])
+                                has_proj = True
+                            all_2d_boxes.append([min_x, min_y, max_x, max_y, index])
+                    if has_proj == False:
+                        gt_boxes_2d.append([0, 0, 1, 1, 5])
+                info['gt_boxes_2d'] = np.array(gt_boxes_2d)
+                info['all_2d_boxes'] = np.array(all_2d_boxes)
+        if sample['scene_token'] in train_scenes:
+            train_nusc_infos.append(info)
+        else:
+            val_nusc_infos.append(info)
+
+    progress_bar.close()
+    return train_nusc_infos, val_nusc_infos
+
+    
+
+    
 def fill_trainval_infos(data_path, nusc, train_scenes, val_scenes, test=False, max_sweeps=10, with_cam=False):
     train_nusc_infos = []
     val_nusc_infos = []
@@ -352,6 +781,8 @@ def fill_trainval_infos(data_path, nusc, train_scenes, val_scenes, test=False, m
     ref_chan = 'LIDAR_TOP'  # The radar channel from which we track back n sweeps to aggregate the point cloud.
     chan = 'LIDAR_TOP'  # The reference channel of the current sample_rec that the point clouds are mapped to.
 
+
+    #TODO: 填每一个样本
     for index, sample in enumerate(nusc.sample):
         progress_bar.update()
 

@@ -39,7 +39,7 @@ class NuScenesDataset(DatasetTemplate):
             self.infos = self.balanced_infos_resampling(self.infos)
 
     def include_nuscenes_data(self, mode):
-        self.logger.info('Loading NuScenes dataset')
+        self.logger.info('Loading NuScenes dataset with FRUSTUM')
         nuscenes_infos = []
 
         for info_path in self.dataset_cfg.INFO_PATH[mode]:
@@ -51,7 +51,7 @@ class NuScenesDataset(DatasetTemplate):
                 nuscenes_infos.extend(infos)
 
         self.infos.extend(nuscenes_infos)
-        self.logger.info('Total samples for NuScenes dataset: %d' % (len(nuscenes_infos)))
+        self.logger.info('[FRUSTUM] Total samples for NuScenes dataset: %d' % (len(nuscenes_infos)))
 
 
     #TODO: CBGS
@@ -369,20 +369,20 @@ class NuScenesDataset(DatasetTemplate):
     def create_groundtruth_database(self, used_classes=None, max_sweeps=10, with_cam_gt=False, share_memory=False):
         import torch
 
-        database_save_path = self.root_path / f'gt_database_{max_sweeps}sweeps_withvelo'
-        db_info_save_path = self.root_path / f'nuscenes_dbinfos_{max_sweeps}sweeps_withvelo.pkl'
+        database_save_path = self.root_path / f'Frustum_gt_database_{max_sweeps}sweeps_withvelo'
+        db_info_save_path = self.root_path / f'Frustum_nuscenes_dbinfos_{max_sweeps}sweeps_withvelo.pkl'
 
         database_save_path.mkdir(parents=True, exist_ok=True)
         all_db_infos = {}
         if share_memory:
-            db_data_save_path_lidar = self.root_path / f'nuscenes_{max_sweeps}sweeps_withvelo_lidar.npy'
+            db_data_save_path_lidar = self.root_path / f'Frustum_nuscenes_{max_sweeps}sweeps_withvelo_lidar.npy'
             lidar_offset_cnt = 0
             stacked_gt_lidar = []
         if with_cam_gt:
-            img_database_save_path = self.root_path / f'img_gt_database_{max_sweeps}sweeps_withvelo'
+            img_database_save_path = self.root_path / f'Frustum_img_gt_database_{max_sweeps}sweeps_withvelo'
             img_database_save_path.mkdir(parents=True, exist_ok=True)
             if share_memory:
-                db_data_save_path_img = self.root_path / f'nuscenes_{max_sweeps}sweeps_withvelo_img.npy'
+                db_data_save_path_img = self.root_path / f'Frustum_nuscenes_{max_sweeps}sweeps_withvelo_img.npy'
                 img_offset_cnt = 0
                 stacked_gt_img = []
 
@@ -462,6 +462,15 @@ class NuScenesDataset(DatasetTemplate):
                 np.save(db_data_save_path_img, stacked_gt_img)
 
 #TODO: Fired Process to create dataset info file, lidar and image gt database
+            
+# python -m pcdet.datasets.nuscenes.nuscenes_dataset_frustum --func create_nuscenes_infos \
+#     --cfg_file tools/cfgs/dataset_configs/nuscenes_dataset_frustum.yaml \
+#     --version v1.0-trainval \
+#     --with_cam \
+#     --with_cam_gt \
+
+
+
 def create_nuscenes_info(version, data_path, save_path, max_sweeps=10, with_cam=False):
     from nuscenes.nuscenes import NuScenes
     from nuscenes.utils import splits
@@ -490,23 +499,24 @@ def create_nuscenes_info(version, data_path, save_path, max_sweeps=10, with_cam=
     train_scenes = set([available_scenes[available_scene_names.index(s)]['token'] for s in train_scenes])
     val_scenes = set([available_scenes[available_scene_names.index(s)]['token'] for s in val_scenes])
 
-    print('%s: train scene(%d), val scene(%d)' % (version, len(train_scenes), len(val_scenes)))
+    print('### FRUSTUM ### %s: train scene(%d), val scene(%d)' % (version, len(train_scenes), len(val_scenes)))
     
     #TODO: Frustum在这里加入
-    train_nusc_infos, val_nusc_infos = nuscenes_utils.fill_trainval_infos(
+    train_nusc_infos, val_nusc_infos = nuscenes_utils.fill_trainval_infos_frustum(
         data_path=data_path, nusc=nusc, train_scenes=train_scenes, val_scenes=val_scenes,
         test='test' in version, max_sweeps=max_sweeps, with_cam=with_cam
     )
-
+    
+    #FIXME: 需要去修改unitr+lss.yaml的对应配置
     if version == 'v1.0-test':
-        print('test sample: %d' % len(train_nusc_infos))
-        with open(save_path / f'nuscenes_infos_{max_sweeps}sweeps_test.pkl', 'wb') as f:
+        print('### FRUSTUM ### test sample: %d' % len(train_nusc_infos))
+        with open(save_path / f'Frustum_nuscenes_infos_{max_sweeps}sweeps_test.pkl', 'wb') as f:
             pickle.dump(train_nusc_infos, f)
     else:
-        print('train sample: %d, val sample: %d' % (len(train_nusc_infos), len(val_nusc_infos)))
-        with open(save_path / f'nuscenes_infos_{max_sweeps}sweeps_train.pkl', 'wb') as f:
+        print('### FRUSTUM ### train sample: %d, val sample: %d' % (len(train_nusc_infos), len(val_nusc_infos)))
+        with open(save_path / f'Frustum_nuscenes_infos_{max_sweeps}sweeps_train.pkl', 'wb') as f:
             pickle.dump(train_nusc_infos, f)
-        with open(save_path / f'nuscenes_infos_{max_sweeps}sweeps_val.pkl', 'wb') as f:
+        with open(save_path / f'Frustum_nuscenes_infos_{max_sweeps}sweeps_val.pkl', 'wb') as f:
             pickle.dump(val_nusc_infos, f)
 
 
@@ -525,6 +535,8 @@ if __name__ == '__main__':
     parser.add_argument('--share_memory', action='store_true', default=False, help='use share memory or not')
 
     args = parser.parse_args()
+
+    print("&&&&&&&&&&&&&&&&&& BEGIN to Generate Frustums &&&&&&&&&&&&&&&&&&&&")
 
     if args.func == 'create_nuscenes_infos':
         dataset_cfg = EasyDict(yaml.safe_load(open(args.cfg_file)))

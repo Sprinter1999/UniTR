@@ -601,6 +601,8 @@ class DataBaseSampler(object):
 
         return data_dict
 
+
+    #FIXME: check这一块能否被PointAugmenting的GT Sampling完整替换
     def __call__(self, data_dict):
         """
         Args:
@@ -625,7 +627,7 @@ class DataBaseSampler(object):
             
             if int(sample_group['sample_num']) > 0:
 
-                #TODO: 这里从GT Database里面根据需求直接采样，并不考虑冲突，和PointAugmenting不一样
+                #TODO: 这里从GT Database里面根据需求直接采样，并不考虑冲突，在后面考虑冲突，和PointAugmenting不一样
                 sampled_dict = self.sample_with_fixed_number(class_name, sample_group)
 
                 sampled_boxes = np.stack([x['box3d_lidar'] for x in sampled_dict], axis=0).astype(np.float32)
