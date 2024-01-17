@@ -252,7 +252,8 @@ class NuScenesDataset(DatasetTemplate):
 
             input_dict.update({
                 'gt_names': info['gt_names'] if mask is None else info['gt_names'][mask],
-                'gt_boxes': info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
+                'gt_boxes': info['gt_boxes'] if mask is None else info['gt_boxes'][mask],
+                'frustum': info['gt_frustum'] if mask is None else info['gt_frustum'][mask] #FIXME: update了frustum
             })
             if 'gt_boxes_2d' in info:
                 info['gt_boxes_2d'] = info['gt_boxes_2d'][info['empty_mask']]

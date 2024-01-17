@@ -7,7 +7,7 @@ from pcdet.utils import common_utils
 
 from .dataset import DatasetTemplate
 from .kitti.kitti_dataset import KittiDataset
-from .nuscenes.nuscenes_dataset import NuScenesDataset
+from .nuscenes.nuscenes_dataset_frustum import NuScenesDataset
 from .waymo.waymo_dataset import WaymoDataset
 from .pandaset.pandaset_dataset import PandasetDataset
 from .lyft.lyft_dataset import LyftDataset
