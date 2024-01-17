@@ -5,7 +5,8 @@ Currently, I'm reproducing related experiments. Some requirements are modified o
 - torch=1.13.0
 - torchvision=0.14.0
 - torch-scatter=2.1.1
-- setuptools=68.2.2 
+- setuptools=68.2.2
+- kornia=0.6.8
 
 This repo is the official implementation of **ICCV2023** paper: [UniTR: A Unified and Efficient Multi-Modal Transformer for Bird's-Eye-View Representation](http://arxiv.org/abs/2308.07732) as well as the follow-ups. Our UniTR achieves state-of-the-art performance on nuScenes Dataset with a real unified and weight-sharing multi-modal (e.g., `Cameras` and `LiDARs`) backbone. UniTR is built upon the codebase of [DSVT](https://github.com/Haiyang-W/DSVT), we have made every effort to ensure that the codebase is clean, concise, easily readable, state-of-the-art, and relies only on minimal dependencies.
 
