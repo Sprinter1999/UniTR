@@ -85,6 +85,9 @@ class DataBaseSampler_PA(object):
         # else:
         #     raise NotImplementedError
 
+        cam_names = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
+
+
         if self.mode == "train":
             # anno_dict = res["lidar"]["annotations"]
 
@@ -126,6 +129,7 @@ class DataBaseSampler_PA(object):
 
             # if self.db_sampler:
             # calib = res["calib"] if "calib" in res else None
+            calib = data_dict["calib"]
             selected_feature = np.ones([5 + 3])  # xyzrt, u v cam_id
             selected_feature[5:5 + 3] = 1. if self.use_img else 0.
 
@@ -139,8 +143,8 @@ class DataBaseSampler_PA(object):
                 random_crop=False,
                 revise_calib=True,
                 gt_group_ids=None,
-                calib=None,
-                cam_name=res['camera']['name'],
+                calib=calib,
+                cam_name=cam_names, #res['camera']['name'],
                 road_planes=None  # res["lidar"]["ground_plane"]
             )
 
@@ -199,7 +203,7 @@ class DataBaseSampler_PA(object):
             gt_dict["gt_classes"] = gt_classes
 
 
-            #TODO: 这里的后续增强就留到UniTR本身的增强Pipeline了, 不在這裏處理
+            #TODO: 这里的后续增强就留到UniTR框架本身自带的增强Pipeline了, 不在這裏處理
             # gt_dict["gt_boxes"], points = prep.random_flip_both(gt_dict["gt_boxes"], points)
             
             # gt_dict["gt_boxes"], points = prep.global_rotation(
