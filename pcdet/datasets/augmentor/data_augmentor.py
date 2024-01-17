@@ -39,7 +39,7 @@ class DataAugmentor(object):
     
     #FIXME: Point Augmenting Sampler
     def gt_sampling(self, config=None):
-        db_sampler_PA = None
+        db_sampler_PA = pointaug_sampler.DataBaseSampler_PA(cfg=config)
         return db_sampler_PA
 
 

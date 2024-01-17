@@ -29,7 +29,7 @@ def corners_to_bbox(info, corners, cam_name, calib, imsize=(900, 1600)):
             pts_cam = cam_from_global.dot(pts_global)[:3, :]  # 3 * N
 
             # cam to uv
-            from det3d.datasets.pipelines.loading import view_points
+            # from det3d.datasets.pipelines.loading import view_points
             
             pts_uv = view_points(pts_cam, np.array(cam_intrinsic), normalize=True).T  # N * 3
 
@@ -367,27 +367,27 @@ class DataBaseSamplerV2:
             sampled_corners =  center_to_corner_box3d(sampled_gt_boxes[:, :3], sampled_gt_boxes[:, 3:6],
                                                                 sampled_gt_boxes[:, -1])
 
-            if road_planes is not None:
-                # Only support KITTI
-                # image plane
-                assert False, "Not correct yet!"
-                a, b, c, d = road_planes
+            # if road_planes is not None:
+            #     # Only support KITTI
+            #     # image plane
+            #     assert False, "Not correct yet!"
+                # a, b, c, d = road_planes
 
-                center = sampled_gt_boxes[:, :3]
-                center[:, 2] -= sampled_gt_boxes[:, 5] / 2
-                center_cam =  lidar_to_camera(center, calib["rect"], calib["Trv2c"])
+                # center = sampled_gt_boxes[:, :3]
+                # center[:, 2] -= sampled_gt_boxes[:, 5] / 2
+                # center_cam =  lidar_to_camera(center, calib["rect"], calib["Trv2c"])
 
-                cur_height_cam = (-d - a * center_cam[:, 0] - c * center_cam[:, 2]) / b
-                center_cam[:, 1] = cur_height_cam
-                lidar_tmp_point =  camera_to_lidar(center_cam, calib["rect"], calib["Trv2c"])
-                cur_lidar_height = lidar_tmp_point[:, 2]
+                # cur_height_cam = (-d - a * center_cam[:, 0] - c * center_cam[:, 2]) / b
+                # center_cam[:, 1] = cur_height_cam
+                # lidar_tmp_point =  camera_to_lidar(center_cam, calib["rect"], calib["Trv2c"])
+                # cur_lidar_height = lidar_tmp_point[:, 2]
 
-                # botom to middle center
-                # kitti [0.5, 0.5, 0] center to [0.5, 0.5, 0.5]
-                sampled_gt_boxes[:, 2] = cur_lidar_height + sampled_gt_boxes[:, 5] / 2
+                # # botom to middle center
+                # # kitti [0.5, 0.5, 0] center to [0.5, 0.5, 0.5]
+                # sampled_gt_boxes[:, 2] = cur_lidar_height + sampled_gt_boxes[:, 5] / 2
 
-                # mv_height = sampled_gt_boxes[:, 2] - cur_lidar_height
-                # sampled_gt_boxes[:, 2] -= mv_height
+                # # mv_height = sampled_gt_boxes[:, 2] - cur_lidar_height
+                # # sampled_gt_boxes[:, 2] -= mv_height
 
             num_sampled = len(sampled)
             s_points_list = []

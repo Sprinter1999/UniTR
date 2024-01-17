@@ -45,7 +45,7 @@ def build_dbsampler(cfg, logger=None):
 
 class DataBaseSampler_PA(object):
     def __init__(self, cfg=None, **kwargs):
-        self.shuffle_points = cfg.shuffle_points
+        self.shuffle_points = True
         self.min_points_in_gt = 5
         
         self.mode = cfg.mode
@@ -55,44 +55,53 @@ class DataBaseSampler_PA(object):
             # self.global_translate_std = cfg.get('global_translate_std', 0)
             self.class_names = cfg.class_names
             self.remove_points_after_sample = cfg.get('remove_points_after_sample', False)
-            if cfg.db_sampler != None:
-                self.db_sampler = build_dbsampler(cfg.db_sampler)
-            else:
-                self.db_sampler = None 
+            # if cfg.db_sampler != None:
+            self.db_sampler = build_dbsampler(cfg.db_sampler)
+            # else:
+            #     self.db_sampler = None 
                 
             self.npoints = cfg.get("npoints", -1)
 
         self.no_augmentation = cfg.get('no_augmentation', False)
 
-        self.use_img = cfg.get("use_img", False)
+        self.use_img = True
 
 
     #FIXME: check这一块能否接入UniTR的代码库
-    def __call__(self, res, info):
+    def __call__(self, data_dict):
 
-        res["mode"] = self.mode
+        # res["mode"] = self.mode
 
-        if res["type"] in ["WaymoDataset"]:
-            if "combined" in res["lidar"]:
-                points = res["lidar"]["combined"]
-            else:
-                points = res["lidar"]["points"]
-        elif res["type"] in ["NuScenesDataset"]:
-            points = res["lidar"]["combined"]
-        else:
-            raise NotImplementedError
+        self.mode = 'train'
+
+        points = data_dict['points']
+        # if res["type"] in ["WaymoDataset"]:
+        #     if "combined" in res["lidar"]:
+        #         points = res["lidar"]["combined"]
+        #     else:
+        #         points = res["lidar"]["points"]
+        # elif res["type"] in ["NuScenesDataset"]:
+        #     points = res["lidar"]["combined"]
+        # else:
+        #     raise NotImplementedError
 
         if self.mode == "train":
-            anno_dict = res["lidar"]["annotations"]
+            # anno_dict = res["lidar"]["annotations"]
 
             gt_dict = {
-                "gt_boxes": anno_dict["boxes"],
-                "gt_names": np.array(anno_dict["names"]).reshape(-1),
-                "gt_frustums": anno_dict["frustums"],
+                "gt_boxes": data_dict['gt_boxes'],
+                "gt_names": np.array(data_dict["names"]).reshape(-1),
+                "gt_frustums": data_dict["frustums"],
+            }
+
+            cam_anno_dict = {
+                    "avail_2d": data_dict["avail_2d"].astype(np.bool),
+                    "boxes_2d": data_dict["boxes_2d"].astype(np.int32),
+                    "depths": data_dict["depths"].astype(np.float32),
             }
 
             if self.use_img:
-                cam_anno_dict = res["camera"]["annotations"]
+                # cam_anno_dict = res["camera"]["annotations"]
                 gt_dict["bboxes"] = cam_anno_dict["boxes_2d"]
                 gt_dict["avail_2d"] = cam_anno_dict["avail_2d"]
                 gt_dict["depths"] = cam_anno_dict["depths"]
@@ -115,65 +124,66 @@ class DataBaseSampler_PA(object):
                 [n in self.class_names for n in gt_dict["gt_names"]], dtype=np.bool_
             )
 
-            if self.db_sampler:
-                calib = res["calib"] if "calib" in res else None
-                selected_feature = np.ones([5 + 3])  # xyzrt, u v cam_id
-                selected_feature[5:5 + 3] = 1. if self.use_img else 0.
+            # if self.db_sampler:
+            # calib = res["calib"] if "calib" in res else None
+            selected_feature = np.ones([5 + 3])  # xyzrt, u v cam_id
+            selected_feature[5:5 + 3] = 1. if self.use_img else 0.
 
-                #TODO: 直接return了被采样的目标们，在这里sample的时候，将当前帧传进来了，同时考虑冲突的问题
-                sampled_dict = self.db_sampler.sample_all_v2(
-                    res["metadata"]["image_prefix"],
-                    gt_dict["gt_boxes"],
-                    gt_dict["gt_names"],
-                    gt_dict["gt_frustums"],
-                    selected_feature,
-                    random_crop=False,
-                    revise_calib=True,
-                    gt_group_ids=None,
-                    calib=calib,
-                    cam_name=res['camera']['name'],
-                    road_planes=None  # res["lidar"]["ground_plane"]
-                )
+            #TODO: 直接return了被采样的目标们，在这里sample的时候，将当前帧传进来了，同时考虑冲突的问题
+            sampled_dict = self.db_sampler.sample_all_v2(
+                data_dict["image_paths"], #res["metadata"]["image_prefix"],
+                gt_dict["gt_boxes"],
+                gt_dict["gt_names"],
+                gt_dict["gt_frustums"],
+                selected_feature,
+                random_crop=False,
+                revise_calib=True,
+                gt_group_ids=None,
+                calib=None,
+                cam_name=res['camera']['name'],
+                road_planes=None  # res["lidar"]["ground_plane"]
+            )
 
-                if sampled_dict is not None:
-                    sampled_gt_names = sampled_dict["gt_names"]
-                    sampled_gt_boxes = sampled_dict["gt_boxes"]
-                    sampled_points = sampled_dict["points"]
-                    sampled_gt_masks = sampled_dict["gt_masks"]
-                    sampled_frustums = sampled_dict["gt_frustums"]
-                    sampled_num = sampled_gt_boxes.shape[0]
-                    origin_num = gt_dict['gt_boxes'].shape[0]
-                    gt_dict["pasted"] = np.concatenate([np.zeros([gt_dict["gt_boxes"].shape[0]]), np.ones(sampled_num)],
-                                                       axis=0)
-                    if self.use_img:
-                        gt_dict["avail_2d"] = np.concatenate([gt_dict["avail_2d"], sampled_dict["avail_2d"]], axis=0)
-                        gt_dict["bboxes"] = np.concatenate([gt_dict["bboxes"], sampled_dict["bboxes"]], axis=0)
-                        gt_dict["depths"] = np.concatenate([gt_dict["depths"], sampled_dict["depths"]], axis=0)
-                        gt_dict["patch_path"] = np.concatenate(
-                            [[['']*6 for i in range(origin_num)], sampled_dict["patch_path"]], axis=0)
+            if sampled_dict is not None:
+                sampled_gt_names = sampled_dict["gt_names"]
+                sampled_gt_boxes = sampled_dict["gt_boxes"]
+                sampled_points = sampled_dict["points"]
+                sampled_gt_masks = sampled_dict["gt_masks"]
+                sampled_frustums = sampled_dict["gt_frustums"]
+                sampled_num = sampled_gt_boxes.shape[0]
+                origin_num = gt_dict['gt_boxes'].shape[0]
+                gt_dict["pasted"] = np.concatenate([np.zeros([gt_dict["gt_boxes"].shape[0]]), np.ones(sampled_num)],
+                                                    axis=0)
+                if self.use_img:
+                    gt_dict["avail_2d"] = np.concatenate([gt_dict["avail_2d"], sampled_dict["avail_2d"]], axis=0)
+                    gt_dict["bboxes"] = np.concatenate([gt_dict["bboxes"], sampled_dict["bboxes"]], axis=0)
+                    gt_dict["depths"] = np.concatenate([gt_dict["depths"], sampled_dict["depths"]], axis=0)
+                    gt_dict["patch_path"] = np.concatenate(
+                        [[['']*6 for i in range(origin_num)], sampled_dict["patch_path"]], axis=0)
 
 
-                    #TODO: 本质上，将 sampled_gt_boxes 的信息装饰到gt_dict
-                        
-                    # gt_boxes放最后
-                    gt_dict["gt_names"] = np.concatenate([gt_dict["gt_names"], sampled_gt_names], axis=0)
-                    gt_dict["gt_boxes"] = np.concatenate([gt_dict["gt_boxes"], sampled_gt_boxes])
-                    gt_dict["gt_frustums"] = np.concatenate([gt_dict["gt_frustums"], sampled_frustums])
-                    gt_boxes_mask = np.concatenate([gt_boxes_mask, sampled_gt_masks], axis=0)
+                #TODO: 本质上，将 sampled_gt_boxes 的信息装饰到gt_dict
+                    
+                # gt_boxes放最后
+                gt_dict["gt_names"] = np.concatenate([gt_dict["gt_names"], sampled_gt_names], axis=0)
+                gt_dict["gt_boxes"] = np.concatenate([gt_dict["gt_boxes"], sampled_gt_boxes])
+                gt_dict["gt_frustums"] = np.concatenate([gt_dict["gt_frustums"], sampled_frustums])
+                gt_boxes_mask = np.concatenate([gt_boxes_mask, sampled_gt_masks], axis=0)
 
-                    if self.remove_points_after_sample:
-                        masks = points_in_rbbox(points, sampled_gt_boxes)
-                        points = points[np.logical_not(masks.any(-1))]
+                if self.remove_points_after_sample:
+                    masks = points_in_rbbox(points, sampled_gt_boxes)
+                    points = points[np.logical_not(masks.any(-1))]
 
-                    #TODO: PointAugmenting
-                    if self.use_img:  # paste imgs
-                        res['img'] = procress_image(res['img'], gt_dict)
+                #TODO: PointAugmenting
+                if self.use_img:  # paste imgs
+                    # res['img'] = procress_image(res['img'], gt_dict)
+                    data_dict['images'] = procress_image(data_dict['images'], gt_dict)
 
-                    # from tools.visualization import show_pts_in_box
-                    # show_pts_in_box(points, sampled_points)
+                # from tools.visualization import show_pts_in_box
+                # show_pts_in_box(points, sampled_points)
 
-                    #TODO: PointAugmenting
-                    points, gt_boxes_mask = procress_points(points, sampled_points, gt_boxes_mask, gt_dict)
+                #TODO: PointAugmenting
+                points, gt_boxes_mask = procress_points(points, sampled_points, gt_boxes_mask, gt_dict)
 
             if self.use_img:
                 gt_dict.pop('avail_2d')
@@ -189,7 +199,7 @@ class DataBaseSampler_PA(object):
             gt_dict["gt_classes"] = gt_classes
 
 
-            #TODO: 这里的后续增强就留到UniTR本身的增强Pipeline了
+            #TODO: 这里的后续增强就留到UniTR本身的增强Pipeline了, 不在這裏處理
             # gt_dict["gt_boxes"], points = prep.random_flip_both(gt_dict["gt_boxes"], points)
             
             # gt_dict["gt_boxes"], points = prep.global_rotation(
@@ -215,14 +225,19 @@ class DataBaseSampler_PA(object):
             )
             gt_dict["gt_classes"] = gt_classes
 
-        if self.shuffle_points:
-            np.random.shuffle(points)
+        # if self.shuffle_points:
+        np.random.shuffle(points)
 
         if self.use_img:
             points = np.concatenate([points, np.ones([points.shape[0], 1])], axis=1).astype(np.float32)
-        res["lidar"]["points"] = points
-
+        # res["lidar"]["points"] = points
+        
+        data_dict["points"] = points
+                  
         if self.mode == "train":
-            res["lidar"]["annotations"] = gt_dict
+            # res["lidar"]["annotations"] = gt_dict
+            data_dict["gt_boxes"] = gt_dict["gt_boxes"] 
+            data_dict["gt_names"] = gt_dict["gt_names"]
+            data_dict["gt_frustums"] = gt_dict["gt_frustums"]
 
-        return res, info
+        return data_dict
