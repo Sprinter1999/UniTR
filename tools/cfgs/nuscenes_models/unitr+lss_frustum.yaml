@@ -3,6 +3,10 @@ CLASS_NAMES: ['car','truck', 'construction_vehicle', 'bus', 'trailer',
 
 FRUSTUM: True
 
+DATA_ROOT: "/group/dphi_algo_scratch_15/xuefengj/UniTR-main/data/nuscenes/v1.0-trainval"
+
+DB_INFO_PATH: "/group/dphi_algo_scratch_15/xuefengj/UniTR-main/data/nuscenes/v1.0-trainval/Frustum_nuscenes_infos_10sweeps_train.pkl"
+
 DATA_CONFIG:
     _BASE_CONFIG_: cfgs/dataset_configs/nuscenes_dataset_frustum.yaml
     POINT_CLOUD_RANGE: [-54.0, -54.0, -5.0, 54.0, 54.0, 3.0]

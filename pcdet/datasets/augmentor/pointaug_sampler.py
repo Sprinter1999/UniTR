@@ -25,13 +25,14 @@ def drop_arrays_by_name(gt_names, used_classes):
 
 def build_dbsampler(cfg, logger=None):
     # logger = logging.getLogger("build_dbsampler")
-    prepors = [build_db_preprocess(c, logger=logger) for c in cfg.db_prep_steps]
+    # 29行->cross_modal_aug的279行有索引问题
+    prepors = [build_db_preprocess(c, logger=logger) for c in cfg["db_prep_steps"]]
     db_prepor = DataBasePreprocessor(prepors)
-    rate = cfg.rate
-    grot_range = cfg.global_random_rotation_range_per_object
-    groups = cfg.sample_groups
+    rate = cfg["rate"]
+    grot_range = cfg["global_random_rotation_range_per_object"]
+    groups = cfg["sample_groups"]
     # groups = [dict(g.name_to_max_num) for g in groups]
-    info_path = cfg.db_info_path
+    info_path = cfg["db_info_path"]
     with open(info_path, "rb") as f:
         db_infos = pickle.load(f)
     grot_range = list(grot_range)
@@ -44,19 +45,62 @@ def build_dbsampler(cfg, logger=None):
     return sampler
 
 class DataBaseSampler_PA(object):
-    def __init__(self, cfg=None, **kwargs):
+    def __init__(self, root_path, cfg=None, **kwargs):
         self.shuffle_points = True
         self.min_points_in_gt = 5
         
-        self.mode = cfg.mode
+        # self.mode = cfg.mode
+        self.mode = "train"
         if self.mode == "train":
             # self.global_rotation_noise = cfg.global_rot_noise
             # self.global_scaling_noise = cfg.global_scale_noise
             # self.global_translate_std = cfg.get('global_translate_std', 0)
-            self.class_names = cfg.class_names
+            # self.class_names = cfg.class_names
+            self.class_names = cfg.get('CLASS_NAMES', None)
             self.remove_points_after_sample = cfg.get('remove_points_after_sample', False)
             # if cfg.db_sampler != None:
-            self.db_sampler = build_dbsampler(cfg.db_sampler)
+            
+            db_info_path = cfg.get("DB_INFO_PATH",None)
+            data_root = cfg.get("DATA_ROOT", None)
+            self.root_path = root_path
+            # db_info_path = self.root_path.resolve() / db_info_path
+            db_sampler_config = dict(
+                    type="GT-AUG",
+                    enable=False,
+                    db_info_path=db_info_path, #TODO: modified
+                    sample_groups=[
+                        dict(car=2),
+                        dict(truck=3),
+                        dict(construction_vehicle=7),
+                        dict(bus=4),
+                        dict(trailer=6),
+                        dict(barrier=2),
+                        dict(motorcycle=6),
+                        dict(bicycle=6),
+                        dict(pedestrian=2),
+                        dict(traffic_cone=2),
+                    ],
+                    db_prep_steps=[
+                        dict(
+                            filter_by_min_num_points=dict(
+                                car=5,
+                                truck=5,
+                                bus=5,
+                                trailer=5,
+                                construction_vehicle=5,
+                                traffic_cone=5,
+                                barrier=5,
+                                motorcycle=5,
+                                bicycle=5,
+                                pedestrian=5,
+                            )
+                        ),
+                        dict(filter_by_difficulty=[-1],),
+                    ],
+                    global_random_rotation_range_per_object=[0, 0],
+                    rate=1.0,
+                )
+            self.db_sampler = build_dbsampler(db_sampler_config)
             # else:
             #     self.db_sampler = None 
                 

@@ -9,7 +9,7 @@ import numpy as np
 
 # from det3d.core.bbox import box_np_ops
 
-from cross_modal_augmentation import *
+from .cross_modal_augmentation import *
 
 from geometry import (
     is_line_segment_intersection_jit,

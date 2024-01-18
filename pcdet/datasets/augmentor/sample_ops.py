@@ -8,7 +8,7 @@ import numpy as np
 
 from .cross_modal_augmentation import *
 # from det3d.core.bbox import c
-import preprocess as prep
+from .preprocess import * 
 # from det3d.utils.check import shape_mergeable
 
 def corners_to_bbox(info, corners, cam_name, calib, imsize=(900, 1600)):
@@ -122,7 +122,7 @@ class DataBaseSamplerV2:
 
         self._sampler_dict = {}
         for k, v in self._group_db_infos.items():
-            self._sampler_dict[k] = prep.BatchSampler(v, k)
+            self._sampler_dict[k] = BatchSampler(v, k)
         self._enable_global_rot = False
         if global_rot_range is not None:
             if not isinstance(global_rot_range, (list, tuple, np.ndarray)):
@@ -242,10 +242,10 @@ class DataBaseSamplerV2:
                 Trv2c = calib["Trv2c"]
                 P2 = calib["P2"]
                 gt_bboxes =  box3d_to_bbox(sampled_gt_boxes, rect, Trv2c, P2)
-                crop_frustums = prep.random_crop_frustum(gt_bboxes, rect, Trv2c, P2)
+                crop_frustums = random_crop_frustum(gt_bboxes, rect, Trv2c, P2)
                 for i in range(crop_frustums.shape[0]):
                     s_points = s_points_list[i]
-                    mask = prep.mask_points_in_corners(
+                    mask = mask_points_in_corners(
                         s_points, crop_frustums[i : i + 1]
                     ).reshape(-1)
                     num_remove = np.sum(mask)
@@ -445,10 +445,10 @@ class DataBaseSamplerV2:
                 Trv2c = calib["Trv2c"]
                 P2 = calib["P2"]
                 gt_bboxes =  box3d_to_bbox(sampled_gt_boxes, rect, Trv2c, P2)
-                crop_frustums = prep.random_crop_frustum(gt_bboxes, rect, Trv2c, P2)
+                crop_frustums = random_crop_frustum(gt_bboxes, rect, Trv2c, P2)
                 for i in range(crop_frustums.shape[0]):
                     s_points = s_points_list[i]
-                    mask = prep.mask_points_in_corners(
+                    mask = mask_points_in_corners(
                         s_points, crop_frustums[i: i + 1]
                     ).reshape(-1)
                     num_remove = np.sum(mask)
@@ -517,7 +517,7 @@ class DataBaseSamplerV2:
         boxes = np.concatenate([gt_boxes, sp_boxes], axis=0).copy()
         if self._enable_global_rot:
             # place samples to any place in a circle.
-            prep.noise_per_object_v3_(
+            noise_per_object_v3_(
                 boxes, None, valid_mask, 0, 0, self._global_rot_range, num_try=100
             )
 
@@ -528,7 +528,7 @@ class DataBaseSamplerV2:
 
         total_bv = np.concatenate([gt_boxes_bv, sp_boxes_bv], axis=0)
         # coll_mat = collision_test_allbox(total_bv)
-        coll_mat = prep.box_collision_test(total_bv, total_bv)
+        coll_mat = box_collision_test(total_bv, total_bv)
         diag = np.arange(total_bv.shape[0])
         coll_mat[diag, diag] = False
 
@@ -578,7 +578,7 @@ class DataBaseSamplerV2:
         group_ids = np.concatenate([gt_group_ids, sp_group_ids], axis=0)
         if self._enable_global_rot:
             # place samples to any place in a circle.
-            prep.noise_per_object_v3_(
+            noise_per_object_v3_(
                 boxes,
                 None,
                 valid_mask,
@@ -594,7 +594,7 @@ class DataBaseSamplerV2:
         )
         total_bv = np.concatenate([gt_boxes_bv, sp_boxes_bv], axis=0)
         # coll_mat = collision_test_allbox(total_bv)
-        coll_mat = prep.box_collision_test(total_bv, total_bv)
+        coll_mat = box_collision_test(total_bv, total_bv)
         diag = np.arange(total_bv.shape[0])
         coll_mat[diag, diag] = False
         valid_samples = []
@@ -638,7 +638,7 @@ class DataBaseSamplerV2:
         boxes = np.concatenate([gt_boxes, sp_boxes], axis=0).copy()
         if self._enable_global_rot:
             # place samples to any place in a circle.
-            prep.noise_per_object_v3_(
+            noise_per_object_v3_(
                 boxes, None, valid_mask, 0, 0, self._global_rot_range, num_try=100
             )
 
@@ -649,7 +649,7 @@ class DataBaseSamplerV2:
 
         total_bv = np.concatenate([gt_boxes_bv, sp_boxes_bv], axis=0)
         # coll_mat = collision_test_allbox(total_bv)
-        coll_mat = prep.box_collision_test(total_bv, total_bv)
+        coll_mat = box_collision_test(total_bv, total_bv)
 
         sp_frustums = np.stack([i["frustum"] for i in sampled], axis=0)
         frustum_coll_mat = self.frustum_collision_test(gt_frustums, sp_frustums)
