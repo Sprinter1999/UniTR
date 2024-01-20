@@ -692,4 +692,41 @@ def procress_points(points, sampled_points, gt_boxes_mask, gt_dict):
 
 
 
+def procress_points_modify(points, sampled_points, gt_dict):
+    points = np.concatenate([sampled_points, points], axis=0)
 
+    pts_rr = transform2Spherical(points)
+
+    valid = np.zeros([points.shape[0]], dtype=np.bool_)
+    valid_filter = np.zeros([points.shape[0]], dtype=np.bool_)
+    valid_sample = np.zeros([points.shape[0]], dtype=np.bool_)
+    valid_sample[:sampled_points.shape[0]] = 1
+    point_indices = points_in_rbbox(points, gt_dict["gt_boxes"])
+
+    depths = np.sqrt(np.square(gt_dict['gt_boxes'][:, 0]) + np.square(gt_dict['gt_boxes'][:, 1]) +
+                     np.square(gt_dict['gt_boxes'][:, 2]))
+    idxs = np.argsort(depths)
+
+    for idx in idxs:
+        cur_frus = gt_dict["gt_frustums"][idx]
+
+        # valid points in object frustum
+        val = (pts_rr[:, 1] > cur_frus[1, 0, 0]) & (pts_rr[:, 1] < cur_frus[1, 1, 0])
+        sp_frus = [cur_frus[2, :, 0]] if cur_frus[2, 0, 1] < 0 else [cur_frus[2, :, 0], cur_frus[2, :, 1]]
+        for frus in sp_frus:
+            val = val & (pts_rr[:, 2] > frus[0]) & (pts_rr[:, 2] < frus[1])
+
+        val1 = (point_indices[:, idx]) & (valid_filter < 1)  # points in 3D box and not filtered
+        valid[val1] = 1  # remained points of current object - valid set to 1
+        val = val & (np.logical_not(valid))
+        if not gt_dict["pasted"][idx]:  # sampled box -> filter bg and fg; original box -> only filter sampled fg
+            val = val & valid_sample
+        valid_filter[val] = 1
+
+    points = points[valid_filter < 1]
+
+
+
+    gt_dict.pop('pasted')
+    gt_dict.pop('gt_frustums')
+    return points

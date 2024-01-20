@@ -14,6 +14,8 @@ from ...utils import box_utils, common_utils, calibration_kitti
 from pcdet.datasets.kitti.kitti_object_eval_python import kitti_common
 from PIL import Image
 
+from .cross_modal_augmentation import *
+
 class DataBaseSampler(object):
     def __init__(self, root_path, sampler_cfg, class_names, logger=None):
         self.root_path = root_path
@@ -570,6 +572,8 @@ class DataBaseSampler(object):
         obj_points = np.concatenate(obj_points_list, axis=0)
         sampled_gt_names = np.array([x['name'] for x in total_valid_sampled_dict])
 
+        # sampled_gt_points = np.array([x['points'] for x in total_valid_sampled_dict])
+
         if self.sampler_cfg.get('FILTER_OBJ_POINTS_BY_TIMESTAMP', False) or obj_points.shape[-1] != points.shape[-1]:
             if self.sampler_cfg.get('FILTER_OBJ_POINTS_BY_TIMESTAMP', False):
                 min_time = min(self.sampler_cfg.TIME_RANGE[0], self.sampler_cfg.TIME_RANGE[1])
@@ -586,14 +590,22 @@ class DataBaseSampler(object):
             sampled_gt_boxes[:, 0:7], extra_width=self.sampler_cfg.REMOVE_EXTRA_WIDTH
         )
         points = box_utils.remove_points_in_boxes3d(points, large_sampled_gt_boxes)
-        points = np.concatenate([obj_points[:, :points.shape[-1]], points], axis=0)
-        
+        # points = np.concatenate([obj_points[:, :points.shape[-1]], points], axis=0)
+
+        #FIXME: modify in here
+        # procress_points_modify(points,obj_points,data_dict)
+        procress_points_modify(points,obj_points[:, :points.shape[-1]],data_dict)
+
         
         #TODO: 把确定可以加入的目标merge到当前的所有data_dict中
         gt_names = np.concatenate([gt_names, sampled_gt_names], axis=0)
         gt_boxes = np.concatenate([gt_boxes, sampled_gt_boxes], axis=0)
         data_dict['gt_boxes'] = gt_boxes
         data_dict['gt_names'] = gt_names
+
+        #TODO: PointAugmenting
+        # points, gt_boxes_mask = procress_points(points, sampled_points, gt_boxes_mask, gt_dict)
+
         data_dict['points'] = points
 
         if self.img_aug_type is not None:
@@ -630,7 +642,15 @@ class DataBaseSampler(object):
                 #TODO: 这里从GT Database里面根据需求直接采样，并不考虑冲突，在后面考虑冲突，和PointAugmenting不一样
                 sampled_dict = self.sample_with_fixed_number(class_name, sample_group)
 
+
+                # for k,v in sampled_dict:
+                #     print(f"^^^K: {k}, V: {v}")
+                
+                # exit()
+
                 sampled_boxes = np.stack([x['box3d_lidar'] for x in sampled_dict], axis=0).astype(np.float32)
+
+                # sampled_points = np.stack([x['points'] for x in sampled_dict], axis=0).astype(np.float32)
 
                 assert not self.sampler_cfg.get('DATABASE_WITH_FAKELIDAR', False), 'Please use latest codes to generate GT_DATABASE'
 
@@ -662,6 +682,10 @@ class DataBaseSampler(object):
                 total_valid_sampled_dict.extend(valid_sampled_dict)
 
         sampled_gt_boxes = existed_boxes[gt_boxes.shape[0]:, :]
+
+        sampled_num = sampled_gt_boxes.shape[0]
+        data_dict["pasted"] = np.concatenate([np.zeros([data_dict["gt_boxes"].shape[0]]), np.ones(sampled_num)],
+                    axis=0)
 
         if total_valid_sampled_dict.__len__() > 0:
             sampled_gt_boxes2d = np.concatenate(sampled_gt_boxes2d, axis=0) if len(sampled_gt_boxes2d) > 0 else None

@@ -63,6 +63,22 @@ class DataBaseSamplerV2:
         global_rot_range=None,
         logger=None,
     ):
+        self.db_infos = {}
+        class_names =  ['car','truck', 'construction_vehicle', 'bus', 'trailer',
+              'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
+        
+        
+        for class_name in class_names:
+            self.db_infos[class_name] = []
+
+        # print("^^^^^^^^^^^")
+        # print(len(db_infos))
+
+        #FIXME: db_infos should be converted, from list to dict
+        # print(db_infos[0])
+        # for each in db_infos:
+        #     self.db_infos
+            
         for k, v in db_infos.items():
             logger.info(f"load {len(v)} {k} database infos")
 

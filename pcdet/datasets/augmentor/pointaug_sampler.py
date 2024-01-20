@@ -26,7 +26,10 @@ def drop_arrays_by_name(gt_names, used_classes):
 def build_dbsampler(cfg, logger=None):
     # logger = logging.getLogger("build_dbsampler")
     # 29行->cross_modal_aug的279行有索引问题
-    prepors = [build_db_preprocess(c, logger=logger) for c in cfg["db_prep_steps"]]
+    # print(cfg)
+    # traverse the dict
+    c = cfg["db_prep_steps"][0]
+    prepors = [build_db_preprocess(c, logger=logger)]
     db_prepor = DataBasePreprocessor(prepors)
     rate = cfg["rate"]
     grot_range = cfg["global_random_rotation_range_per_object"]
@@ -60,7 +63,10 @@ class DataBaseSampler_PA(object):
             self.remove_points_after_sample = cfg.get('remove_points_after_sample', False)
             # if cfg.db_sampler != None:
             
-            db_info_path = cfg.get("DB_INFO_PATH",None)
+            # db_info_path = cfg.get("DB_INFO_PATH",None)
+            db_info_path = "/group/dphi_algo_scratch_15/xuefengj/UniTR-main/data/nuscenes/v1.0-trainval/Frustum_nuscenes_infos_10sweeps_train.pkl"
+
+            # print(f"&&&& {db_info_path}")
             data_root = cfg.get("DATA_ROOT", None)
             self.root_path = root_path
             # db_info_path = self.root_path.resolve() / db_info_path
