@@ -586,15 +586,16 @@ class DataBaseSampler(object):
             time_mask = np.logical_and(obj_points[:, -1] < max_time + 1e-6, obj_points[:, -1] > min_time - 1e-6)
             obj_points = obj_points[time_mask]
 
-        large_sampled_gt_boxes = box_utils.enlarge_box3d(
-            sampled_gt_boxes[:, 0:7], extra_width=self.sampler_cfg.REMOVE_EXTRA_WIDTH
-        )
-        points = box_utils.remove_points_in_boxes3d(points, large_sampled_gt_boxes)
+        # large_sampled_gt_boxes = box_utils.enlarge_box3d(
+        #     sampled_gt_boxes[:, 0:7], extra_width=self.sampler_cfg.REMOVE_EXTRA_WIDTH
+        # )
+            
+        # points = box_utils.remove_points_in_boxes3d(points, large_sampled_gt_boxes)
         # points = np.concatenate([obj_points[:, :points.shape[-1]], points], axis=0)
 
         #FIXME: modify in here
         # procress_points_modify(points,obj_points,data_dict)
-        procress_points_modify(points,obj_points[:, :points.shape[-1]],data_dict)
+        points = procress_points_modify(points,obj_points[:, :points.shape[-1]],data_dict)
 
         
         #TODO: 把确定可以加入的目标merge到当前的所有data_dict中
