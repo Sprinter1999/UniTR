@@ -23,6 +23,7 @@ class DataBaseSampler(object):
         self.sampler_cfg = sampler_cfg
 
         #NuScenes
+        self.frustum_double_mask = sampler_cfg.get('FRUSTUM_DOUBLE_MASK', False)
         self.img_aug_type = sampler_cfg.get('IMG_AUG_TYPE', None)
         self.img_aug_iou_thresh = sampler_cfg.get('IMG_AUG_IOU_THRESH', 0.5)
         # Mixup
@@ -613,6 +614,66 @@ class DataBaseSampler(object):
             data_dict = self.copy_paste_to_image(img_aug_gt_dict, data_dict, points)
 
         return data_dict
+    
+    def frustum_double_mask_func(self, gt_dict, sampled):
+
+        num_gt = gt_dict["gt_boxes"].shape[0]
+        num_sampled = len(sampled)
+    
+        sp_frustums = np.stack([i["frustum"] for i in sampled], axis=0)
+        gt_frustums = gt_dict["gt_frustums"]
+
+        total_len = gt_frustums.shape[0] + sp_frustums.shape[0]
+
+        frustum_coll_mat = self.frustum_collision_test(gt_frustums, sp_frustums)
+        vein_coll_mat = frustum_coll_mat.zeros_like()
+
+        coll_mat = np.logical_or(vein_coll_mat, frustum_coll_mat)
+
+        diag = np.arange(total_len)
+        coll_mat[diag, diag] = False
+
+        valid_samples_indexes = []
+        for i in range(num_gt, num_gt + num_sampled):
+            if coll_mat[i].any():
+                coll_mat[i] = False
+                coll_mat[:, i] = False
+            else:
+                valid_samples_indexes.append(i - num_gt)
+
+        return valid_samples_indexes
+
+
+    def frustum_collision_test(self, gt_frustums, sp_frustums, thresh=0.7):
+            ## calculate iou
+            N = gt_frustums.shape[0]
+            K = sp_frustums.shape[0]
+            gt_frustums_all = np.concatenate([gt_frustums, sp_frustums], axis=0)
+            S = np.array([(cur_frus[1, 1, 0] - cur_frus[1, 0, 0]) * (cur_frus[2, 1, 0] - cur_frus[2, 0, 0] + cur_frus[2, 1, 1] - cur_frus[2, 0, 1]) \
+                        for cur_frus in gt_frustums_all], dtype=np.float32)
+            # assert S.any() > 0
+            ret = np.zeros((N+K, N+K), dtype=np.float32)
+            for i in range(N+K):
+                for j in range(K):
+                    sp_frus = [sp_frustums[j, :, :, 0]] if sp_frustums[j, 2, 0, 1] < 0 else [sp_frustums[j, :, :, 0], sp_frustums[j, :, :, 1]]
+                    gt_frus = [gt_frustums_all[i, :, :, 0]] if gt_frustums_all[i, 2, 0, 1] < 0 else [gt_frustums_all[i, :, :, 0], gt_frustums_all[i, :, :, 1]]
+                    iou = 0
+                    for cur_sp_frus in sp_frus:
+                        for cur_gt_frus in gt_frus:
+                            coll = ((max(cur_sp_frus[2, 0], cur_gt_frus[2, 0]) < min(cur_sp_frus[2, 1], cur_gt_frus[2, 1]))
+                                and (max(sp_frustums[j, 1, 0, 0], gt_frustums_all[i, 1, 0, 0]) < min(sp_frustums[j, 1, 1, 0], gt_frustums_all[i, 1, 1, 0])))
+                            if coll:
+                                iou += (min(cur_sp_frus[2, 1], cur_gt_frus[2, 1]) - max(cur_sp_frus[2, 0], cur_gt_frus[2, 0])) * \
+                                (min(sp_frustums[j, 1, 1, 0], gt_frustums_all[i, 1, 1, 0]) - max(sp_frustums[j, 1, 0, 0], gt_frustums_all[i, 1, 0, 0]))
+                                # assert iou > 0
+
+                    iou_per = iou / min(S[i], S[j+N])
+                    # assert iou_per <= 1.01
+                    ret[i, j + N] = iou_per
+                    ret[j + N, i] = iou_per
+
+            ret = ret > thresh
+            return ret
 
 
     #FIXME: check这一块能否被PointAugmenting的GT Sampling完整替换
@@ -675,8 +736,20 @@ class DataBaseSampler(object):
                         sampled_mv_height.append(mv_height)
 
                 valid_mask = valid_mask.nonzero()[0]
-                valid_sampled_dict = [sampled_dict[x] for x in valid_mask]
-                valid_sampled_boxes = sampled_boxes[valid_mask]
+                if self.frustum_double_mask == True:
+                    frustum_valid_indexes = self.frustum_double_mask_func(data_dict, sampled_dict)
+                
+                #FIXME: 同时在 valid_mask 和 frustum_valid_indexes 才加入
+                valid_mask_ = list(set(valid_mask) & set(frustum_valid_indexes))
+
+
+                torch.cuda.empty_cache()
+                exit()
+
+                valid_sampled_dict = [sampled_dict[x] for x in valid_mask_]
+                valid_sampled_boxes = sampled_boxes[valid_mask_]
+
+
                 
                 #TODO: valid sampled boxes可以理解为“确认可以添加的目标”
                 existed_boxes = np.concatenate((existed_boxes, valid_sampled_boxes[:, :existed_boxes.shape[-1]]), axis=0)
