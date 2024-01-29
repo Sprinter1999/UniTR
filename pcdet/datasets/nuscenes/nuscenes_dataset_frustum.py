@@ -395,6 +395,7 @@ class NuScenesDataset(DatasetTemplate):
             points = self.get_lidar_with_sweeps(idx, max_sweeps=max_sweeps)
             gt_boxes = info['gt_boxes']
             gt_names = info['gt_names']
+            gt_frus = info['gt_frustum']
 
             box_idxs_of_pts = roiaware_pool3d_utils.points_in_boxes_gpu(
                 torch.from_numpy(points[:, 0:3]).unsqueeze(dim=0).float().cuda(),
@@ -429,11 +430,12 @@ class NuScenesDataset(DatasetTemplate):
                     if not share_memory:
                         cv2.imwrite(str(img_filepath),object_img_patches[i])
 
+                #FIXME: add frustum
 
                 if (used_classes is None) or gt_names[i] in used_classes:
                     db_path = str(filepath.relative_to(self.root_path))  # gt_database/xxxxx.bin
                     db_info = {'name': gt_names[i], 'path': db_path, 'image_idx': sample_idx, 'gt_idx': i,
-                               'box3d_lidar': gt_boxes[i], 'num_points_in_gt': gt_points.shape[0]}
+                               'box3d_lidar': gt_boxes[i], 'num_points_in_gt': gt_points.shape[0], 'gt_frustum':gt_frus}
                     if share_memory:
                         stacked_gt_lidar.append(gt_points)
                         db_info['global_data_offset'] = [lidar_offset_cnt, lidar_offset_cnt + gt_points.shape[0]]
