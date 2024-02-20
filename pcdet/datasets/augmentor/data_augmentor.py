@@ -310,6 +310,8 @@ class DataAugmentor(object):
         """
 
         #TODO: Data Augmenting Pipeline
+        #To evaluate some points, we should firstly ban GT-sampling
+        # original_data_dict = copy.deepcopy(data_dict)
         for cur_augmentor in self.data_augmentor_queue:
             data_dict = cur_augmentor(data_dict=data_dict)
 
